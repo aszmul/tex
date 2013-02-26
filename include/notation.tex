@@ -1,0 +1,46 @@
+\usepackage{xifthen}
+
+\newcommand{\mbb}[1]{{%
+\ifthenelse{\isin{#1}{abcdefghijklmnopqrstuvxyz}}%
+  {{\mathbf #1}}%
+  {\boldsymbol #1}%
+}}
+\newcommand{\mup}[1]{{%
+\ifthenelse{\isin{#1}{abcdefghijklmnopqrstuvxyzABCDEFGHIJKLMNOPQRSTUVXYZ}}%
+  {\text{#1}}%
+  {#1}%
+}}
+
+% vector
+\newcommand{\vct}[1]{\mbb{#1}}
+% matrix
+\newcommand{\mat}[1]{#1}
+% set
+\newcommand{\set}[1]{\mbb{#1}}
+% super-set
+\newcommand{\sset}[1]{\boldsymbol{\mathcal{#1}}}
+% random variable
+\newcommand{\ran}[1]{#1}
+% function
+\newcommand{\fun}[1]{\mathrm{#1}}
+
+% image
+\newcommand{\img}[1]{#1}
+% segmentation
+\newcommand{\seg}[1]{#1}
+% feature field
+\newcommand{\ff}[1]{#1}
+
+% candidate - this is a set
+\newcommand{\cand}[1]{\set{#1}}
+% assignment - this is just a scalar
+\newcommand{\asg}[1]{#1}
+
+% whole numbers
+\newcommand{\whole}[0]{\mathbb{Z}}
+% real numbers
+\newcommand{\real}[0]{\mathbb{R}}
+
+% abbreviations
+\def\ie{{\it i.e.}}
+\def\eg{{\it e.g.}}

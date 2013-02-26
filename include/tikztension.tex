@@ -1,0 +1,120 @@
+% This file provides all the magic for our TikZ-externalisation. Whenever you 
+% include your TikZ picture example.tikz.tex using \includetikz{example}, a pdf 
+% file with the image only will be generated and included instead. This prevents 
+% TikZ pictures from being re-typeset every time you compile your document.  
+% Also, it facilitates interaction with non-TikZ submission systems, since all 
+% pictures are present as pdfs already and you don't need TikZ anymore to 
+% compile the document (try 'make export').
+
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{todonotes}
+
+\newwrite\depfile
+\immediate\openout\depfile=tikz.dep
+
+\pgfrealjobname{everything}
+
+% single escape
+%
+% escapes a single character
+\def\sesc#1{%
+\if#1.-%   . -> -
+\else%
+\if#1=-%   = -> -
+\else%
+\if#1,-%   , -> -
+\else%
+\if#1/-%   / -> -
+\else#1%
+\fi%
+\fi%
+\fi%
+\fi%
+}
+
+% denotes the end of the sequence to escape
+\def\escnull{}
+
+% escapes a sequence that ends with \escnull followed by \escend
+\def\esc#1#2\escend{%
+\ifx#1\escnull%
+\else%
+\sesc#1\esc#2\escend%
+\fi%
+}
+
+% Escapes a string using the replacements in \sesc. Introduces no non-expandable 
+% macros, i.e., the result can safely be used for filenames.
+\def\escape#1{\esc#1\escnull\escend}
+
+% Creates the basename of the pdf file and writes the dependency to the original 
+% tikz file to tikz.dep.
+\def\writedep#1#2{%
+  \def\basename{#2-\escape{#1}}%
+  \immediate\write\depfile{\basename.pdf: #2.tikz.tex}%
+}
+
+% make the @ a letter
+\catcode`\@=11
+
+% a key that defines an empty macro with the name of the value of the key
+\pgfkeys{/tikztension/define/.code=%
+  \def\tikztension@defined{#1}%
+  \expandafter\def\csname #1\endcsname{}%
+  %(defined #1)
+}
+
+% introduce a new family of keys
+\pgfkeys{
+  /tikztension/.is family,
+  /tikztension/define/.belongs to family=/tikztension}
+\pgfkeys{/pgf/key filters/active families/.install key filter}
+
+% #1 is the base name of the tikz file
+% #2 is a string of PGF keys that are passed to \begin{tikzpicture}. It may 
+% contain the special key /tikztension/define that defines empty macros. These 
+% can be used as flags in the tikzimage via \ifdefined.
+\newcommand{\includetikz}[2][]{%
+  \writedep{#1}{#2}%
+  \def\graphicname{#2-\escape{#1}}%
+  % preparation
+  \expandafter\edef\csname %
+    tikztension@atcode\endcsname{\the\catcode`\@}%
+  \catcode`@=11%
+  \def\remainingoptions{}%
+  \def\tikztension@defined{}%
+  % collect all filtered options in /remainingoptions
+  \pgfkeys{/pgf/key filter handlers/%
+           append filtered to/%
+           .install key filter handler=
+           \remainingoptions}
+  % The following is a bit tricky:
+  % First, /tikztension is made active, such that only options from this family 
+  % are getting processed. Then we expand the search path to /tikz, such that we 
+  % do not get "don't know a key with name..." error whenever we encounter a 
+  % tikz option we do not care about anyway (it is not in the active family). In 
+  % the following call to pgfkeysfiltered we first set the current path to 
+  % /tikz, then to /tikztension, and then we process the options. In a normal 
+  % call to /pgfkeys the first option (/tikz) would have no effect. In our case, 
+  % however, it will be filtered out and prepended to the /remainingoptions.  
+  % This way the /tikz options in #1 do not have to be prefixed by /tikz!
+  \pgfkeys{/tikztension/.activate family}%
+  \pgfkeys{/tikztension/.search also={/tikz}}%
+  \pgfkeysfiltered{tikz,/tikztension/.cd,#1}%
+  % include tikz graphic or pdf file
+  \expandafter\beginpgfgraphicnamed{\graphicname}%
+    \IfFileExists{#2.tikz.tex}%
+    {%
+      \begin{tikzpicture}%
+        \pgfkeysalsofrom{\remainingoptions}%
+        \node[transform shape] {\input{#2.tikz.tex}};%
+      \end{tikzpicture}%
+    }%
+    {image file does not exist (yet)}%
+  \endpgfgraphicnamed%
+  % unset tikztension option
+  \expandafter\let\csname\tikztension@defined\endcsname=\@undefined
+  % change back to original catcode of @
+  \catcode`\@=\csname tikztension@atcode\endcsname
+}%

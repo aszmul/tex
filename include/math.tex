@@ -1,0 +1,52 @@
+% This file provides definitions of mathematical operators, symbols, and theorem 
+% environments.
+
+
+% defining equality
+\newcommand{\define}{\stackrel{\text{\tiny def}}{=}}
+
+% argmin, argmax
+\newcommand{\argmin}[1]{\mathop{\arg\min}_{#1}\hspace{0.5em}}
+\newcommand{\mmin}[1]{\mathop{\min}_{#1}\hspace{0.5em}}
+\newcommand{\argmax}[1]{\mathop{\arg\max}_{#1}\hspace{0.5em}}
+\newcommand{\mmax}[1]{\mathop{\max}_{#1}\hspace{0.5em}}
+
+% const
+\newcommand\const{\text{const}}
+
+% transpose and inverse
+\newcommand{\trans}[0]{{\sf T}}
+\newcommand\inv{{-1}}
+
+% annotations in equations
+\newcommand{\annotation}[1]{& \text{{\small{#1}}}}
+
+% function names
+\newcommand\gauss{\mathcal{N}}
+
+% theorem etc. environments
+
+\usepackage{framed}
+\usepackage[framed,thmmarks]{ntheorem}
+
+% general theorem style
+\theoremstyle{plain}
+\theorembodyfont{}
+\def\theoremframecommand{\fcolorbox{black}{gray!20!white}}
+
+\newshadedtheorem{theorem}{Theorem}[section]
+
+\newshadedtheorem{lemma}[theorem]{Lemma}
+
+\newshadedtheorem{proposition}[theorem]{Proposition}
+
+\newshadedtheorem{corollary}[theorem]{Corollary}
+
+\newshadedtheorem{definition}{Definition}[section]
+
+{
+\theoremstyle{nonumberplain}
+\theoremsymbol{\rule{1ex}{1ex}}
+\theoremseparator{:}
+\newtheorem{proof}{Proof}[section]
+}

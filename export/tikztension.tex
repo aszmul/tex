@@ -1,0 +1,48 @@
+% This is the externalization variant of the tikztension, i.e., the one that 
+% should be used to send to journals etc. It assumes that all graphics have been 
+% generated in an appropriate format (pdf, ps, or eps) already. This is how you 
+% can get rid of the tikz-dependence for publications.
+\usepackage{graphics}
+
+% single escape
+%
+% escapes a single character
+\def\sesc#1{%
+\if#1.-%   . -> -
+\else%
+\if#1=-%   = -> -
+\else%
+\if#1,-%   , -> -
+\else%
+\if#1/-%   / -> -
+\else#1%
+\fi%
+\fi%
+\fi%
+\fi%
+}
+
+% denotes the end of the sequence to escape
+\def\escnull{}
+
+% escapes a sequence that ends with \escnull followed by \escend
+\def\esc#1#2\escend{%
+\ifx#1\escnull%
+\else%
+\sesc#1\esc#2\escend%
+\fi%
+}
+
+% Escapes a string using the replacements in \sesc. Introduces no non-expandable 
+% macros, i.e., the result can safely be used for filenames.
+\def\escape#1{\esc#1\escnull\escend}
+
+% #1 is the base name of the tikz file
+% #2 is a string of PGF keys that are passed to \begin{tikzpicture}. It may 
+% contain the special key /tikztension/define that defines empty macros. These 
+% can be used as flags in the tikzimage via \ifdefined.
+\newcommand{\includetikz}[2][]{%
+  \def\graphicname{#2-\escape{#1}}%
+  % include externalized graphic
+  \includegraphics{\graphicname}%
+}%

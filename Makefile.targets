@@ -1,0 +1,143 @@
+# the build system directory is the one containing this Makefile
+BUILDSYSTEMDIR=$(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
+
+# the common dir is assumed to be in the projects directory
+COMMONDIR=$(BUILDSYSTEMDIR)/../common
+
+# sketch -- converts 3d scenes to tikz images
+SKETCH_BIN=sketch
+PDFCROP_BIN=pdfcrop
+
+# the target pdf file to create
+PDFFILE=$(TEXFILE:.tex=.pdf)
+
+# temporary directory for tex-compilation
+TMPDIR=.tmp
+
+# externalization directory (for journal publication)
+EXPDIR=.export
+# wildcards for files that are not supposed to be exported
+NOPSEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.pdf *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./include/pgf/* ./include/pgfplots/*
+NOPDFEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.eps *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./include/pgf/* ./include/pgfplots/*
+
+# tex-generated list of tikz images in the target pdf
+TIKZDEPFILE=tikz.dep
+
+# additionaly search these dirs for prerequisites
+VPATH=$(COMMONDIR):$(EXPDIR):$(TMPDIR)
+
+# tex include paths
+TEXINPUTS=$(BUILDSYSTEMDIR)/include/pgf//:$(BUILDSYSTEMDIR)/include/pgfplots//:$(BUILDSYSTEMDIR)/include/IEEEtrantools//:$(COMMONDIR)/images/plots/data/
+
+prepare-tmpdir=\
+  mkdir -p $(TMPDIR); \
+  cp -ru $(BUILDSYSTEMDIR)/* $(TMPDIR); \
+  cp -ru $(COMMONDIR)/* $(TMPDIR); \
+  cp -ru * $(TMPDIR)
+
+prepare-psexpdir=\
+  mkdir -p $(EXPDIR); \
+  cp -ru $(BUILDSYSTEMDIR)/* $(EXPDIR); \
+  cp -ru $(COMMONDIR)/* $(EXPDIR); \
+  cp -ru * $(EXPDIR)
+
+prepare-pdfexpdir=\
+  mkdir -p $(EXPDIR); \
+  cp -ru $(TMPDIR)/* $(EXPDIR); \
+  cp -ru * $(EXPDIR)
+
+default: view
+
+.PHONY:
+images:
+-include $(TMPDIR)/$(TIKZDEPFILE)
+
+compile: images $(TEXFILE)
+	$(call prepare-tmpdir)
+	( \
+	  cd $(TMPDIR) && \
+	  TEXINPUTS=.:..:$(BUILDSYSTEMDIR):$(COMMONDIR):$(TEXINPUTS): \
+	  pdflatex \
+	    --jobname everything \
+	    --shell-escape \
+	    $(TEXFILE) && \
+	  (bibtex everything.aux || true) && \
+	  echo -n "images: " >> $(TIKZDEPFILE) && \
+	  for pdffile in `cat $(TIKZDEPFILE) | grep '.*\.pdf:' | sed 's/\(.*\.pdf\).*/\1/'`; \
+	    do echo -n " $$pdffile" >> $(TIKZDEPFILE); \
+	  done && \
+	  echo "" >> $(TIKZDEPFILE); \
+	  echo -n "epsimages: " >> $(TIKZDEPFILE) && \
+	  for epsfile in `cat $(TIKZDEPFILE) | grep '.*\.pdf:' | sed 's/\(.*\)\.pdf.*/\1.eps/'`; \
+	    do echo -n " $$epsfile" >> $(TIKZDEPFILE); \
+	  done && \
+	  echo "" >> $(TIKZDEPFILE) \
+	)
+	mv $(TMPDIR)/everything.pdf $(TEXFILE:.tex=.pdf)
+
+view: compile
+	@ bash -c "evince $(PDFFILE) 1>&- 2>&-" &
+
+# create a version that includes all figures as eps files and does not need tikz anymore
+psexport: compile epsimages
+	# create externalization directory
+	# and copy all tex files in there
+	$(call prepare-psexpdir)
+	# overwrite tikz-includes
+	cp $(BUILDSYSTEMDIR)/export/* $(EXPDIR)/include/
+	# copy bibtex file there
+	cp $(TMPDIR)/everything.bbl $(EXPDIR)/$(subst .tex,.bbl,$(TEXFILE))
+	# remove all files that are not supposed to be exported
+	( \
+	  cd $(EXPDIR) && \
+	  find \( -type l -o -type f -a \( $(foreach PATTERN, $(NOPSEXPORT), -wholename '$(PATTERN)' -o) -false \) \) -exec rm '{}' \; ; \
+	  find -depth -empty -type d -exec rm -r '{}' \; \
+	)
+
+# create a version that includes all figures as pdf files and does not need tikz anymore
+pdfexport: compile
+	# create externalization directory
+	# and copy all tex files in there
+	$(call prepare-pdfexpdir)
+	# overwrite tikz-includes
+	cp $(BUILDSYSTEMDIR)/export/* $(EXPDIR)/include/
+	# copy bibtex file there
+	cp $(TMPDIR)/everything.bbl $(EXPDIR)/$(subst .tex,.bbl,$(TEXFILE))
+	# remove all files that are not supposed to be exported
+	( \
+	  cd $(EXPDIR) && \
+	  find \( -type l -o -type f -a \( $(foreach PATTERN, $(NOPDFEXPORT), -wholename '$(PATTERN)' -o) -false \) \) -exec rm '{}' \; ; \
+	  find -depth -empty -type d -exec rm -r '{}' \; \
+	)
+
+# rule to create pdf files from tikz images of the target pdf
+%.pdf:
+	$(call prepare-tmpdir)
+	( \
+	  cd $(TMPDIR) && \
+	  TEXINPUTS=.:..:$(BUILDSYSTEMDIR):$(COMMONDIR):$(TEXINPUTS): \
+	  pdflatex \
+	    --jobname $(subst .pdf,,$@) \
+	    --shell-escape \
+	    $(TEXFILE); \
+	    env -i $(PDFCROP_BIN) $@ $@ \
+	)
+
+# rule to create tikz from sketch
+%.tikz.tex:%.sk
+	$(call prepare-tmpdir)
+	( \
+	  cd $(TMPDIR) && \
+	  $(SKETCH_BIN) -b -o $@ $(subst .tikz.tex,.sk,$@) \
+	)
+
+# rule to create ps files from pdf images
+%.eps:%.pdf
+	$(call prepare-psexpdir)
+	pdf2ps $< $(subst .eps,.ps,$(EXPDIR)/$@)
+	ps2eps -f $(subst .eps,.ps,$(EXPDIR)/$@)
+
+clean:
+	rm -rf $(TMPDIR)
+	rm -rf $(EXPDIR)
+	rm -f $(PDFFILE)
