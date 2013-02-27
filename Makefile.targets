@@ -1,8 +1,8 @@
 # the build system directory is the one containing this Makefile
 BUILDSYSTEMDIR=$(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 
-# the common dir is assumed to be in the projects directory
-COMMONDIR=$(BUILDSYSTEMDIR)/../common
+# the common dir is assumed to be in the projects directory, if not set already
+COMMONDIR?=$(BUILDSYSTEMDIR)/../common
 
 # sketch -- converts 3d scenes to tikz images
 SKETCH_BIN=sketch
@@ -16,9 +16,10 @@ TMPDIR=.tmp
 
 # externalization directory (for journal publication)
 EXPDIR=.export
+
 # wildcards for files that are not supposed to be exported
-NOPSEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.pdf *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./include/pgf/* ./include/pgfplots/*
-NOPDFEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.eps *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./include/pgf/* ./include/pgfplots/*
+NOPSEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.pdf *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README ./$(TEXFILE:.tex=.pdf)
+NOPDFEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.eps *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README ./$(TEXFILE:.tex=.pdf)
 
 # tex-generated list of tikz images in the target pdf
 TIKZDEPFILE=tikz.dep
@@ -27,7 +28,7 @@ TIKZDEPFILE=tikz.dep
 VPATH=$(COMMONDIR):$(EXPDIR):$(TMPDIR)
 
 # tex include paths
-TEXINPUTS=$(BUILDSYSTEMDIR)/include/pgf//:$(BUILDSYSTEMDIR)/include/pgfplots//:$(BUILDSYSTEMDIR)/include/IEEEtrantools//:$(COMMONDIR)/images/plots/data/
+TEXINPUTS=$(BUILDSYSTEMDIR)/include//:$(COMMONDIR)/images/plots/data/
 
 prepare-tmpdir=\
   mkdir -p $(TMPDIR); \
@@ -44,6 +45,7 @@ prepare-psexpdir=\
 prepare-pdfexpdir=\
   mkdir -p $(EXPDIR); \
   cp -ru $(TMPDIR)/* $(EXPDIR); \
+  mv $(EXPDIR)/include/* $(EXPDIR); \
   cp -ru * $(EXPDIR)
 
 default: view
@@ -100,9 +102,11 @@ pdfexport: compile
 	# and copy all tex files in there
 	$(call prepare-pdfexpdir)
 	# overwrite tikz-includes
-	cp $(BUILDSYSTEMDIR)/export/* $(EXPDIR)/include/
-	# copy bibtex file there
-	cp $(TMPDIR)/everything.bbl $(EXPDIR)/$(subst .tex,.bbl,$(TEXFILE))
+	cp -r $(BUILDSYSTEMDIR)/export/* $(EXPDIR)
+	# rename bibtex file
+	mv $(EXPDIR)/everything.bbl $(EXPDIR)/$(subst .tex,.bbl,$(TEXFILE))
+	# rename theorem file
+	mv $(EXPDIR)/everything.thm $(EXPDIR)/$(subst .tex,.thm,$(TEXFILE))
 	# remove all files that are not supposed to be exported
 	( \
 	  cd $(EXPDIR) && \
