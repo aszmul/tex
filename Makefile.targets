@@ -4,6 +4,9 @@ BUILDSYSTEMDIR=$(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)
 # the common dir is assumed to be in the projects directory, if not set already
 COMMONDIR?=$(BUILDSYSTEMDIR)/../common
 
+# set a default pdf viewer, if non was set already
+PDFVIEWER?=evince
+
 # sketch -- converts 3d scenes to tikz images
 SKETCH_BIN=sketch
 PDFCROP_BIN=pdfcrop
@@ -28,7 +31,7 @@ TIKZDEPFILE=tikz.dep
 VPATH=$(COMMONDIR):$(EXPDIR):$(TMPDIR)
 
 # tex include paths
-TEXINPUTS=$(BUILDSYSTEMDIR)/include//:$(COMMONDIR)/images/plots/data/
+TEXINPUTS=$(BUILDSYSTEMDIR)/include//
 
 prepare-tmpdir=\
   mkdir -p $(TMPDIR); \
@@ -78,7 +81,7 @@ compile: images $(TEXFILE)
 	mv $(TMPDIR)/everything.pdf $(TEXFILE:.tex=.pdf)
 
 view: compile
-	@ bash -c "evince $(PDFFILE) 1>&- 2>&-" &
+	@ bash -c "$(PDFVIEWER) $(PDFFILE) 1>&- 2>&-" &
 
 # create a version that includes all figures as eps files and does not need tikz anymore
 psexport: compile epsimages
