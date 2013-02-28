@@ -65,7 +65,7 @@ compile: images $(TEXFILE)
 	  pdflatex \
 	    --jobname everything \
 	    --shell-escape \
-	    $(TEXFILE) && \
+	    '\def\enabletikztension{} \input{$(TEXFILE:.tex=)}' && \
 	  (bibtex everything.aux || true) && \
 	  echo -n "images: " >> $(TIKZDEPFILE) && \
 	  for pdffile in `cat $(TIKZDEPFILE) | grep '.*\.pdf:' | sed 's/\(.*\.pdf\).*/\1/'`; \
@@ -126,7 +126,7 @@ pdfexport: compile
 	  pdflatex \
 	    --jobname $(subst .pdf,,$@) \
 	    --shell-escape \
-	    $(TEXFILE); \
+	    '\def\enabletikztension{} \input{$(TEXFILE:.tex=)}' && \
 	    env -i $(PDFCROP_BIN) $@ $@ \
 	)
 
