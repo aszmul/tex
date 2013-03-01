@@ -1,0 +1,61 @@
+Dear collaborators,
+
+This build directory contains the packages 'tikz', 'pgfplots', and 'funkey'.
+'tikz' and 'pgfplots' are provided to make sure we all use the same version of
+these packages. 'funkey' is a set of macros that I found helpful. In
+particular, it provides the macro \includetikz which can be used to include
+tikz pictures from separate files (see also README.funkey).
+
+Without Makefiles
+=================
+
+  If you don't like to use Makefiles to compile your documents, you can use
+  pdflatex (or whatever you are using) directly. In this case, please make sure
+  that you set the TEXINPUTS environment variable to contain the
+  './build/include//' directory (with two trailing slashes). This way we make
+  sure that we all use the same versions of the LaTeX packages TikZ and PGFPlots
+  and that the package 'funkey' is found. If you are using a common
+  directory for figures/plots/etc that are shared across different documents,
+  TEXINPUTS should also include this directory (with one trailing slash).
+
+  Usage example without Makefile:
+  -------------------------------
+
+    TEXINPUTS=../common/:../build/include//: pdflatex document.tex
+
+With Makefiles
+==============
+
+  If, however, you use the provided Makefile, all TikZ/PGFPlots pictures that are
+  included via
+
+    \includetikz{path/to/an/example}
+
+  from a file ./path/to/an/example.tikz.tex (relative to the including TeX file
+  or the common directory) will be extracted into a pdf file and in a second pass
+  included into the main document. This way, you don't have to rebuild all
+  figures just because you changed some text somewhere. This is especially useful
+  for larger plots.
+
+  For that, copy the supplied Makefile.template to the directory containing
+  your (La)TeX document, rename it to Makefile and adjust the paths in it.
+
+  On a Unix-like system with basic LaTeX packages, pdflatex and pdfcrop
+  installed, typing
+
+    make
+
+  in a directory containing a Makefile and a tex-file should be enough to build
+  the document and TikZ/PGFPlots figures and display it using the make variable
+  $(PDFVIEWER) (defaults to 'evince', if you don't overwrite this).
+
+  Additionally, a call to
+
+    make pdfexport
+
+  will create a TikZ/PGFPlots free version of the LaTeX sources in the directory
+  '.export'. This version does not depend on TikZ/PGFPlots anymore and can thus
+  be used to send LaTeX sources to journals (all figures are supplied as pdf
+  files, in this case).
+
+Happy TeXing :)

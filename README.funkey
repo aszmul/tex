@@ -1,0 +1,82 @@
+The funkey package
+==================
+
+TikZtension
+-----------
+
+  This is a package containing some macros that I found useful. In particular, it
+  contains the macro \includetikz, which can be used to externalize TikZ
+  pictures.
+
+  For that, the command
+
+    \includetikz{path/to/example}
+
+  will search for a file 'path/to/example.tikz.tex' in any of the TeX input
+  directories (i.e., the current directory and a common directory, if specified).
+
+  If the document is compiled with the supplied Makefile, it will create a pdf
+  file containing only the TikZ picture and include that instead of parsing the
+  tex file. The pdf will be updated whenever the tikz.tex file changes.
+
+  If the document is compiled with any other method, \includetikz will just
+  inline the TikZ picture.
+
+  All options that can be passed to a TikZ \node can be passed to \includetikz to
+  control the appearance of the TikZ picture. Of special interest is the 'scale'
+  option, e.g.,
+
+    \includetikz[scale=0.5]{path/to/example},
+
+  which is helpful if you want to include the same graphic in documents with
+  different sizes (like slides vs. paper).
+
+  Additionally, the special option 'define' allows you to control the TikZ
+  picture. The follwing call will define an empty macro \hidedetails in the scope
+  of the included file:
+
+    \includetikz[define=hidedetails]{path/to/example}.
+
+  In example.tikz.tex, you can now use this macro as follows:
+
+    \begin{tikzpicture}
+
+      \ifdefined\hidedetails
+        % do nothing
+      \else
+        \node {Here are the details!};
+      \fi
+
+    \end{tikzpicture}
+
+  Working example
+  ---------------
+
+  document.tex:
+
+    \documentclass{article}
+
+    \usepackage{funkey}
+
+    \begin{document}
+
+    \includetikz{example}
+    \includetikz[scale=0.5]{example}
+    \includetikz[scale=0.5,rotate=90]{example}
+    \includetikz[define=hidedetails]{example}
+
+    \end{document}
+
+  example.tikz.tex:
+
+    \begin{tikzpicture}
+
+      \node[circle,draw] (nodeA) {A};
+
+      \ifdefined\hidedetails
+        % do nothing
+      \else
+        \node[below of=nodeA] {Here are the details!};
+      \fi
+
+    \end{tikzpicture}

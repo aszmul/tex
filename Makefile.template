@@ -1,0 +1,10 @@
+# This is a Makefile template. Copy it to the directory containing your (La)TeX
+# document and change the pathes below accordingly.
+
+# the filename of the document
+TEXFILE=document.tex
+
+# an optional directory for files that are shared across different documents
+#COMMONDIR=../common
+
+include ../build/Makefile.targets
