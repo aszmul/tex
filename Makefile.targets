@@ -67,6 +67,7 @@ compile: images $(TEXFILE)
 	    --shell-escape \
 	    '\def\enabletikztension{} \input{$(TEXFILE:.tex=)}' && \
 	  (bibtex everything.aux || true) && \
+	  mv temp_$(TIKZDEPFILE) $(TIKZDEPFILE) \
 	  echo -n "images: " >> $(TIKZDEPFILE) && \
 	  for pdffile in `cat $(TIKZDEPFILE) | grep '.*\.pdf:' | sed 's/\(.*\.pdf\).*/\1/'`; \
 	    do echo -n " $$pdffile" >> $(TIKZDEPFILE); \

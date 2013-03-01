@@ -11,7 +11,7 @@
 \usepackage{todonotes}
 
 \newwrite\depfile
-\immediate\openout\depfile=tikz.dep
+\immediate\openout\depfile=temp_tikz.dep
 
 \ifdefined\enabletikztension
   \pgfrealjobname{everything}
@@ -53,7 +53,7 @@
 \def\escape#1{\esc#1\escnull\escend}
 
 % Creates the basename of the pdf file and writes the dependency to the original 
-% tikz file to tikz.dep.
+% tikz file to tmp_tikz.dep.
 \def\writedep#1#2{%
   \def\basename{#2-\escape{#1}}%
   \immediate\write\depfile{\basename.pdf: #2.tikz.tex}%
