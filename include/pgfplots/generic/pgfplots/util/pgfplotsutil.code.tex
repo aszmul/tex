@@ -83,16 +83,16 @@
 % #1: the required LaTeX package
 % #2: the feature which requires this package
 \def\pgfplots@assert@LaTeX@package@loaded#1#2{%
-	\pgfutil@ifundefined{@ifpackageloaded}{%
+	\pgfutil@IfUndefined{@ifpackageloaded}{%
 		\pgfplots@error{Sorry, #2 only works with LaTeX (it relies on the LaTeX package #1)}%
 	}{%
-		\pgfutil@ifundefined{ver@#1.sty}% this here has been extracted from ltclass.dtx. \@ifpackageloaded is only usable in preamble.
+		\pgfutil@IfUndefined{ver@#1.sty}% this here has been extracted from ltclass.dtx. \@ifpackageloaded is only usable in preamble.
 			{\pgfplots@error{Sorry, use need \string\usepackage{#1} in your preamble for '#2'}}%
 			{\relax}%
 	}%
 }%
 \def\pgfplots@assert@tikzinternal@exists#1{%
-	\pgfutil@ifundefined{#1}{%
+	\pgfutil@IfUndefined{#1}{%
 		\pgfplots@error{Sorry, pgfplots relies on the existance of the tikz internal macro '#1'.
 		 Unfortunately, this does no longer exist ... you will need to get an updated version of pgfplots to fix this problem.}%
 		\expandafter\let\csname #1\endcsname=\pgfutil@empty
@@ -119,7 +119,7 @@
 % #2: a macro name WITHOUT backslash.
 % #3: the default value if everything fails.
 \def\pgfplots@gettikzinternal@keyval#1#2#3{%
-	\pgfutil@ifundefined{#2}{%
+	\pgfutil@IfUndefined{#2}{%
 		\pgfkeysifdefined{/tikz/#1}{%
 			\pgfkeysgetvalue{/tikz/#1}\pgfplots@TMP
 			\expandafter\let\csname #1\endcsname=\pgfplots@TMP
@@ -138,13 +138,14 @@
 }%
 
 \def\pgfplots@getcurrent@plothandler#1{%
-	\pgfutil@ifundefined{tikz@plot@handler}{%
+	\pgfutil@IfUndefined{tikz@plot@handler}{%
 		\pgfplots@error{Sorry, can't get the current plot handler. It appears that tikz and pgfplots is no longer compatible!? You will need to get a newer version of pgfplots.}%
 		\let#1=\pgfplothandlerlineto
 	}{%
 		\let#1=\tikz@plot@handler
 	}%
-}%
+}
+
 
 
 % Converts an arbitrary command (without arguments) to a string in which all characters
@@ -211,7 +212,7 @@
 	}%
 	\pgfplots@command@to@string\pgfplotsutil@@arg@ifdefined\pgfplotsutil@@arg@ifdefined
 	\expandafter\pgfplotsutil@trim\expandafter{\pgfplotsutil@@arg@ifdefined}%
-	\pgfutil@ifundefined{\pgfplotsretval}{#3}{#2}%
+	\pgfutil@IfUndefined{\pgfplotsretval}{#3}{#2}%
 }%
 % The same as \pgfplotsutil@ifdefinedui but appends the suffix '#2' to
 % '#1' after '#1' has been normalized.
@@ -222,7 +223,7 @@
 	}%
 	\pgfplots@command@to@string\pgfplotsutil@@arg@ifdefined\pgfplotsutil@@arg@ifdefined
 	\expandafter\pgfplotsutil@trim\expandafter{\pgfplotsutil@@arg@ifdefined}%
-	\pgfutil@ifundefined{\pgfplotsretval #2}{#4}{#3}%
+	\pgfutil@IfUndefined{\pgfplotsretval #2}{#4}{#3}%
 }%
 
 % Writes the command name of '#1' without the leading backslash to
@@ -426,16 +427,20 @@
 	\expandafter\let\csname #1\endcsname=\pgfplots@loc@TMPc
 }%
 
-% I have introduced this macro to allow optimizations of (x,y)
-% coordinate processing. Use it for everything which is directly plot
-% related.
-%
-% @see \pgfplotsqpointxy@orthogonal
+% Inside of a pgfplots axis, this method (together with
+% \pgfplotsqpointxyz for 3d axes) is THE
+% point method. If you override the mapping to PGF coordinates here,
+% all other \pgfplotspoint* commands should inherit the changes as well.
 \def\pgfplotsqpointxy#1#2{%
   \global\pgf@x=#1\pgf@xx%
   \global\advance\pgf@x by #2\pgf@yx%
   \global\pgf@y=#1\pgf@xy%
   \global\advance\pgf@y by #2\pgf@yy}
+
+% Inside of a pgfplots axis, this method (together with
+% \pgfplotsqpointxy for 2d axes) is THE
+% point method. If you override the mapping to PGF coordinates here,
+% all other \pgfplotspoint* commands should inherit the changes as well.
 \def\pgfplotsqpointxyz#1#2#3{%
   \global\pgf@x=#1\pgf@xx%
   \global\advance\pgf@x by #2\pgf@yx%
@@ -799,6 +804,18 @@
 	%
 	\edef\pgfplots@loc@TMPb{#4}%
 	\expandafter\pgfplotsforeachlogarithmicungrouped@readdomain\pgfplots@loc@TMPb\relax
+	\pgfplotscoordmath{\pgfplotsforeachlogarithmicmathid}{if is bounded}{\pgfplots@foreach@loc@TMPb}{%
+	}{%
+		\pgfplotsforeachlogarithmicmath@unbounded@domain{#4}%
+		\pgfplotscoordmath{\pgfplotsforeachlogarithmicmathid}{parsenumber}{-10000}%
+		\let\pgfplots@foreach@loc@TMPb=\pgfmathresult
+	}%
+	\pgfplotscoordmath{\pgfplotsforeachlogarithmicmathid}{if is bounded}{\pgfplots@foreach@loc@TMPa}{%
+	}{%
+		\pgfplotsforeachlogarithmicmath@unbounded@domain{#4}%
+		\pgfplotscoordmath{\pgfplotsforeachlogarithmicmathid}{parsenumber}{-10000}%
+		\let\pgfplots@foreach@loc@TMPa=\pgfmathresult
+	}%
 	% compute mesh width into \pgfplots@foreach@loc@TMPc:
 	%  \pgfplots@foreach@loc@TMPc := h := ( log(xmax) - log(xmin) ) / (N-1)
 	\pgfplotscoordmath{\pgfplotsforeachlogarithmicmathid}{op}{subtract}{{\pgfplots@foreach@loc@TMPb}{\pgfplots@foreach@loc@TMPa}}%
@@ -836,6 +853,11 @@
 	% restore scoped variables:
 	\pgfplots@foreach@loc@TMPd
 }
+
+\def\pgfplotsforeachlogarithmicmath@unbounded@domain#1{%
+	\pgfplots@error{Sorry, the provided domain #1 is unsuitable for logarithmic sampling (applying the log results in unbounded values)}%
+}%
+
 % can be used to convert the number format from float to something
 % else.
 \def\pgfplotsforeachlogarithmicungrouped@finalizeresult{}%
@@ -860,9 +882,72 @@
 	\ifx\pgfplots@loc@TMPa\pgfutil@empty #2\else #3\fi
 }%
 
+{
+	\catcode`\#=12
+	\catcode`\1=12
+	\gdef\pgfplotsutil@add@to@macro@@one{#1}%
+	\gdef\pgfplotsutil@add@to@macro@@two{#1#2}%
+}
+
+\def\pgfplotsutil@ifmacrodependsononearg#1#2#3{%
+	\edef\pgfplots@loc@TMPa{\noexpand\pgfutil@in@{\pgfplotsutil@add@to@macro@@one}{\meaning#1}}%
+	\pgfplots@loc@TMPa
+	\ifpgfutil@in@
+		#2%
+	\else
+		#3%
+	\fi
+}%
+
+\def\pgfplotsutil@ifmacrodependsontwoargs#1#2#3{%
+	\edef\pgfplots@util@add@to@macro@@{\noexpand\pgfutil@in@{\pgfplotsutil@add@to@macro@@two}{\meaning#1}}%
+	\pgfplots@util@add@to@macro@@
+	\ifpgfutil@in@
+		#2%
+	\else
+		#3%
+	\fi
+}%
+
+% Appends '#2' to macro '#1'.
+%
+% #1: a macro which takes either no arguments or exactly one.
+% #2: some token text. May depend on '#1' if #1 is a macro which
+% depends on one arg.
+\def\pgfplotsutil@add@to@macro#1#2{%
+	\pgfplotsutil@ifmacrodependsononearg#1{%
+		\pgfplotsutil@ifmacrodependsontwoargs#1{%
+			\pgfplotsutil@add@to@macro@twoargs{#1}{#2}%
+		}{%
+			\pgfplotsutil@add@to@macro@onearg{#1}{#2}%
+		}%
+	}{%
+		\pgfplotsutil@add@to@macro@noargs{#1}{#2}%
+	}%
+}%
+
+\def\pgfplotsutil@add@to@macro@twoargs#1#2{%
+	\t@pgfplots@tokc=\expandafter{#1{##1}{##2}}%
+	\t@pgfplots@tokb={#2}%
+	\edef\pgfplots@util@add@to@macro@@{\the\t@pgfplots@tokc\the\t@pgfplots@tokb}%
+	\expandafter\def\expandafter#1\expandafter##\expandafter1\expandafter##\expandafter2\expandafter{\pgfplots@util@add@to@macro@@}%
+}
+
+\def\pgfplotsutil@add@to@macro@onearg#1#2{%
+	\t@pgfplots@tokc=\expandafter{#1{##1}}%
+	\t@pgfplots@tokb={#2}%
+	\edef\pgfplots@util@add@to@macro@@{\the\t@pgfplots@tokc\the\t@pgfplots@tokb}%
+	\expandafter\def\expandafter#1\expandafter##\expandafter1\expandafter{\pgfplots@util@add@to@macro@@}%
+}
+
+\def\pgfplotsutil@add@to@macro@noargs#1#2{%
+	\t@pgfplots@tokc=\expandafter{#1}%
+	\t@pgfplots@tokb=\expandafter{#2}%
+	\edef#1{\the\t@pgfplots@tokc\the\t@pgfplots@tokb}%
+}
 \def\pgfplots@logfileopen#1{%
 	\immediate\write-1{PGFPlots: reading {#1}}%
-	\pgfutil@ifundefined{tikzifexternalizingcurrent}{%
+	\pgfutil@IfUndefined{tikzifexternalizingcurrent}{%
 		% version not up-to-date or external lib not loaded?
 	}{%
 		% adjust the .dep file only if we are externalizing.
@@ -1094,7 +1179,7 @@
 
 
 
-\pgfutil@ifundefined{pgfmathdeclarefunction}{%
+\pgfutil@IfUndefined{pgfmathdeclarefunction}{%
 	% BACKWARDS COMPATIBILITY: We have PGF 2.00 :
 	\def\pgfplotsmathdeclarepseudoconstant#1#2{%
 		\t@pgfplots@toka=\expandafter{\csname pgfmath#1@\endcsname}%
@@ -1391,12 +1476,12 @@
 
 % defines \pgfplotsretval to be
 %
-% \tikzifinpicture{#1}{#2}
+% \ifpgfpicture #1\else #2\fi
 %
 % and handles the '/pgfplots/invoke before crossref tikzpicture' key.
 % 
-% #1 first argument to \tikzifinpicture
-% #2 second argument to \tikzifinpicture
+% #1 first argument to \ifpgfpicture
+% #2 second argument to \ifpgfpicture
 \def\pgfplots@assemble@ref@picture#1#2{%
 	\begingroup
 	\pgfkeysgetvalue{/pgfplots/invoke before crossref tikzpicture}\pgfplots@loc@TMPa
@@ -1406,13 +1491,13 @@
 	\toks2={#2}%
 	\toks3=\expandafter{\pgfplots@loc@TMPb}%
 	\xdef\pgfplots@glob@TMPa{%
-		\noexpand\tikzifinpicture
-			{\the\toks0}%
-			{%
-				\the\toks1
-				\the\toks2
-				\the\toks3
-			}%
+		\noexpand\ifpgfpicture
+			\the\toks0 %
+		\noexpand\else
+			\the\toks1
+			\the\toks2
+			\the\toks3
+		\noexpand\fi
 	}%
 	\endgroup
 	\let\pgfplotsretval=\pgfplots@glob@TMPa
@@ -1423,7 +1508,7 @@
 		\immediate\write\@auxout{#1}%
 	\fi
 }%
-\pgfutil@ifundefined{if@filesw}{%
+\pgfutil@IfUndefined{if@filesw}{%
 	\def\pgfplots@auxwrite#1{}%
 }{%
 	\let\pgfplots@auxwrite=\pgfplots@auxwrite@latex
@@ -1550,6 +1635,356 @@
   \def\:{\global\let\pgfplotsutil@sptoken= } \:
   \def\:{\pgfplotsutil@xifnch} \expandafter\gdef\: {\futurelet\pgfplotsutil@let@token\pgfplotsutil@ifnch}
 }
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% basic 3d linear algebra utils.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Converts a 3d vectors to string.
+% #1: a vector which expands to the form 'x,y,z'
+% on output, \pgfplotsretval will contain the result vector.
+% #3: the argument for \pgfplotscoordmath (such as 'default')
+% 
+\def\pgfplotsmathvectortostring#1#2{%
+	\begingroup
+	\edef\pgfplots@loc@TMPa{#1}%
+	\expandafter\pgfplotsmathvectorcompwiseop@unary\pgfplots@loc@TMPa\pgfplots@EOI{#2}{{tostring}}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+
+% Reads a 3d vector's coordinates.
+% #1: a vector which expands to the form 'x,y,z'
+% on output, \pgfplotsretval will contain the result vector.
+% #2: the argument for \pgfplotscoordmath (such as 'default')
+% 
+% Example:
+% \pgfplotsmathvectorfromstring{1,4,5}{default}
+% will parse each component
+\def\pgfplotsmathvectorfromstring#1#2{%
+	\begingroup
+	\edef\pgfplots@loc@TMPa{#1}%
+	\expandafter\pgfplotsmathvectorcompwiseop@unary\pgfplots@loc@TMPa\pgfplots@EOI{#2}{{parsenumber}}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+
+% Takes two 3d vectors and subtracts them.
+% #1: a vector which expands to the form 'x,y,z'
+% #2: a vector which expands to the form 'x,y,z'
+% on output, \pgfplotsretval will contain the difference vector.
+% #3: the argument for \pgfplotscoordmath (such as 'default')
+% 
+\def\pgfplotsmathvectorsubtract#1#2#3{%
+	\begingroup
+	\edef\pgfplots@loc@TMPa{#1:#2}%
+	\expandafter\pgfplotsmathvectorcompwiseop@binary\pgfplots@loc@TMPa\pgfplots@EOI{#3}{subtract}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+\def\pgfplotsmathvectorcompwiseop@binary#1,#2,#3:#4,#5,#6\pgfplots@EOI#7#8{%
+	\def\Ax{#1}%
+	\def\Ay{#2}%
+	\def\Az{#3}%
+	\def\Bx{#4}%
+	\def\By{#5}%
+	\def\Bz{#6}%
+	\pgfplotscoordmath{#7}{op}{#8}{{\Ax}{\Bx}}%
+	\let\pgfplots@loc@TMPa=\pgfmathresult
+	\pgfplotscoordmath{#7}{op}{#8}{{\Ay}{\By}}%
+	\let\pgfplots@loc@TMPb=\pgfmathresult
+	\pgfplotscoordmath{#7}{op}{#8}{{\Az}{\Bz}}%
+	\let\pgfplots@loc@TMPc=\pgfmathresult
+	\edef\pgfplotsretval{\pgfplots@loc@TMPa,\pgfplots@loc@TMPb,\pgfplots@loc@TMPc}%
+}%
+
+% #5: an operation ENCLOSED IN BRACES!
+% like '{tostring}' or '{op}{<someunaryop>}'
+\def\pgfplotsmathvectorcompwiseop@unary#1,#2,#3\pgfplots@EOI#4#5{%
+	\def\Ax{#1}%
+	\def\Ay{#2}%
+	\def\Az{#3}%
+	\pgfplotscoordmath{#4}#5{\Ax}%
+	\let\pgfplots@loc@TMPa=\pgfmathresult
+	\pgfplotscoordmath{#4}#5{\Ay}%
+	\let\pgfplots@loc@TMPb=\pgfmathresult
+	\pgfplotscoordmath{#4}#5{\Az}%
+	\let\pgfplots@loc@TMPc=\pgfmathresult
+	\edef\pgfplotsretval{\pgfplots@loc@TMPa,\pgfplots@loc@TMPb,\pgfplots@loc@TMPc}%
+}%
+
+% Takes two 3d vectors and adds them.
+% #1: a vector which expands to the form 'x,y,z'
+% #2: a vector which expands to the form 'x,y,z'
+% on output, \pgfplotsretval will contain the added vector.
+% #3: the argument for \pgfplotscoordmath (such as 'default')
+% 
+\def\pgfplotsmathvectoradd#1#2#3{%
+	\begingroup
+	\edef\pgfplots@loc@TMPa{#1:#2}%
+	\expandafter\pgfplotsmathvectorcompwiseop@binary\pgfplots@loc@TMPa\pgfplots@EOI{#3}{add}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+
+% Takes two 3d vectors and applies a component-wise operation.
+% #1: a vector which expands to the form 'x,y,z'
+% #2: a vector which expands to the form 'x,y,z'
+% on output, \pgfplotsretval will contain a boolean vector with three
+% entries.
+% #3: a scalar operation which takes two arguments (such as "add", "subtract", "equal")
+% #4 the argument for \pgfplotscoordmath (such as 'default')
+% 
+% Example: \pgfplotsmathvectorcompwise{1,1,1}{0,1,0}{add}{pgfbasic}
+% -> \pgfplotsretval={1.0,2.0,1.0}
+\def\pgfplotsmathvectorcompwise#1#2#3#4{%
+	\begingroup
+	\edef\pgfplots@loc@TMPa{#1:#2}%
+	\expandafter\pgfplotsmathvectorcompwiseop@binary\pgfplots@loc@TMPa\pgfplots@EOI{#4}{#3}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+
+% Defines \pgfplotsretval to x+y+z
+% #1: a vector which expands to the form 'x,y,z'
+% on output, \pgfplotsretval will contain the result scalar.
+% #2: the argument for \pgfplotscoordmath (such as 'default')
+% 
+% Example:
+% \pgfplotsmathvectorsum{1,4,5}{default}
+% \pgfplotsretval = 10 (in that format)
+\def\pgfplotsmathvectorsum#1#2{%
+	\begingroup
+	\edef\pgfplots@loc@TMPa{#1}%
+	\expandafter\pgfplotsmathvectorsum@\pgfplots@loc@TMPa\pgfplots@EOI{#2}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+
+\def\pgfplotsmathvectorsum@#1,#2,#3\pgfplots@EOI#4{%
+	\def\Ax{#1}%
+	\def\Ay{#2}%
+	\def\Az{#3}%
+	\pgfplotscoordmath{#4}{op}{add}{{\Ax}{\Ay}}%
+	\let\pgfplotsretval=\pgfmathresult
+	\pgfplotscoordmath{#4}{op}{add}{{\pgfplotsretval}{\Az}}%
+	\let\pgfplotsretval=\pgfmathresult
+}%
+
+% Computes the euclidean scalar product of two 3d vectors #1 and #2 in math
+% format #3.
+\def\pgfplotsmathvectorscalarproduct#1#2#3{%
+	\pgfplotsmathvectorscaleindividually{#1}{#2}{#3}%
+	\pgfplotsmathvectorsum{\pgfplotsretval}{#3}%
+}%
+
+% takes a vector #1 and defines three new macros 
+% \csname #2x\endcsname, 
+% \csname #2y\endcsname, 
+% \csname #2z\endcsname, 
+% with the components.
+% #3: the math format
+\def\pgfplotsmathvectortocomponents#1#2#3{%
+	\edef\pgfplots@loc@TMPa{#1}%
+	\expandafter\pgfplotsmathvectortocomponents@\pgfplots@loc@TMPa\pgfplots@EOI{#3}{#2}%
+}%
+\def\pgfplotsmathvectortocomponents@#1,#2,#3\pgfplots@EOI#4#5{%
+	\expandafter\def\csname #5x\endcsname{#1}%
+	\expandafter\def\csname #5y\endcsname{#2}%
+	\expandafter\def\csname #5z\endcsname{#3}%
+}%
+
+
+% Takes two 3d vectors and computes their cross product.
+% #1: a vector which expands to the form 'x,y,z'
+% #2: a vector which expands to the form 'x,y,z'
+% on output, \pgfplotsretval will contain the result vector.
+% #3: the argument for \pgfplotscoordmath (such as 'default')
+%
+\def\pgfplotsmathvectorcrossprod#1#2#3{%
+	\begingroup
+	\edef\pgfplots@loc@TMPa{#1:#2}%
+	\expandafter\pgfplotsmathvectorcrossprod@\pgfplots@loc@TMPa\pgfplots@EOI{#3}%
+%\message{\string\pgfplotsmathvectorcrossprod{#1}{#2} = \pgfplotsretval^^J}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+\def\pgfplotsmathvectorcrossprod@#1,#2,#3:#4,#5,#6\pgfplots@EOI#7{%
+	\def\Ax{#1}%
+	\def\Ay{#2}%
+	\def\Az{#3}%
+	\def\Bx{#4}%
+	\def\By{#5}%
+	\def\Bz{#6}%
+	%
+	\pgfplotscoordmath{#7}{op}{multiply}{{\Ay}{\Bz}}\let\AyBz=\pgfmathresult
+	\pgfplotscoordmath{#7}{op}{multiply}{{\Az}{\By}}\let\AzBy=\pgfmathresult
+	\pgfplotscoordmath{#7}{op}{multiply}{{\Az}{\Bx}}\let\AzBx=\pgfmathresult
+	\pgfplotscoordmath{#7}{op}{multiply}{{\Ax}{\Bz}}\let\AxBz=\pgfmathresult
+	\pgfplotscoordmath{#7}{op}{multiply}{{\Ax}{\By}}\let\AxBy=\pgfmathresult
+	\pgfplotscoordmath{#7}{op}{multiply}{{\Ay}{\Bx}}\let\AyBx=\pgfmathresult
+	%
+	\pgfplotscoordmath{#7}{op}{subtract}{{\AyBz}{\AzBy}}\let\pgfplots@loc@TMPa=\pgfmathresult%
+	\pgfplotscoordmath{#7}{op}{subtract}{{\AzBx}{\AxBz}}\let\pgfplots@loc@TMPb=\pgfmathresult%
+	\pgfplotscoordmath{#7}{op}{subtract}{{\AxBy}{\AyBx}}\let\pgfplots@loc@TMPc=\pgfmathresult%
+	\edef\pgfplotsretval{\pgfplots@loc@TMPa,\pgfplots@loc@TMPb,\pgfplots@loc@TMPc}%
+}%
+
+% Takes two 3d vectors and defines a new vector (Ax*Bx,Ay*By,Az*Bz)
+% #1: a vector which expands to the form 'x,y,z'
+% #2: a vector which expands to the form 'x,y,z'
+% on output, \pgfplotsretval will contain the result vector.
+% #3: the argument for \pgfplotscoordmath (such as 'default')
+%
+\def\pgfplotsmathvectorscaleindividually#1#2#3{%
+	\begingroup
+	\edef\pgfplots@loc@TMPa{#1:#2}%
+	\expandafter\pgfplotsmathvectorscaleindividually@\pgfplots@loc@TMPa\pgfplots@EOI{#3}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+\def\pgfplotsmathvectorscaleindividually@#1,#2,#3:#4,#5,#6\pgfplots@EOI#7{%
+	\def\Ax{#1}%
+	\def\Ay{#2}%
+	\def\Az{#3}%
+	\def\Bx{#4}%
+	\def\By{#5}%
+	\def\Bz{#6}%
+	%
+	\pgfplotscoordmath{#7}{op}{multiply}{{\Ax}{\Bx}}\let\Cx=\pgfmathresult
+	\pgfplotscoordmath{#7}{op}{multiply}{{\Ay}{\By}}\let\Cy=\pgfmathresult
+	\pgfplotscoordmath{#7}{op}{multiply}{{\Az}{\Bz}}\let\Cz=\pgfmathresult
+	%
+	\edef\pgfplotsretval{\Cx,\Cy,\Cz}%
+}%
+
+% #1 a vector as x,y,z
+% #2 the math format of its components
+\def\pgfplotspointfromcsvvector#1#2{%
+	\begingroup
+	\edef\pgfplots@loc@TMPa{#1}%
+	\expandafter\pgfplotspointfromcsvvector@\pgfplots@loc@TMPa\pgfplots@EOI{#2}
+	\endgroup
+}%
+\def\pgfplotspointfromcsvvector@#1,#2,#3\pgfplots@EOI#4{%
+	\pgfplotscoordmath{#4}{tofixed}{#1}\let\Ax=\pgfmathresult
+	\pgfplotscoordmath{#4}{tofixed}{#2}\let\Ay=\pgfmathresult
+	\pgfplotscoordmath{#4}{tofixed}{#3}\let\Az=\pgfmathresult
+	\pgfplotsqpointxyz\Ax\Ay\Az
+	\pgf@process{}%
+}%
+
+% #1 a vector as (x,y,z)
+% #2 a coordmath value
+% defines \pgfplotsretval to contain the vector length
+\def\pgfplotsmathvectorlength#1#2{%
+	\begingroup
+	\edef\pgfplots@loc@TMPa{#1}%
+	\expandafter\pgfplotsmathvectorlength@\pgfplots@loc@TMPa\pgfplots@EOI{#2}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+\def\pgfplotsmathvectorlength@#1,#2,#3\pgfplots@EOI#4{%
+	\begingroup
+	\def\Ax{#1}%
+	\def\Ay{#2}%
+	\def\Az{#3}%
+	%
+	\pgfplotscoordmath{#4}{op}{multiply}{{\Ax}{\Ax}}\let\Axx=\pgfmathresult
+	\pgfplotscoordmath{#4}{op}{multiply}{{\Ay}{\Ay}}\let\Ayy=\pgfmathresult
+	\pgfplotscoordmath{#4}{op}{multiply}{{\Az}{\Az}}\let\Azz=\pgfmathresult
+	%
+	\pgfplotscoordmath{#4}{op}{add}{{\Axx}{\Ayy}}%
+	\pgfplotscoordmath{#4}{op}{add}{{\Azz}{\pgfmathresult}}%
+	\pgfplotscoordmath{#4}{op}{sqrt}{{\pgfmathresult}}%
+	\let\pgfplotsretval=\pgfmathresult
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+
+% #1 a vector as (x,y,z)
+% #2 a scale
+% #3 a coordmath value
+% defines \pgfplotsretval to contain the scaled vector
+\def\pgfplotsmathvectorscale#1#2#3{%
+	\begingroup
+	\edef\pgfplots@loc@TMPa{#1:#2}%
+	\expandafter\pgfplotsmathvectorscale@\pgfplots@loc@TMPa\pgfplots@EOI{#3}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+\def\pgfplotsmathvectorscale@#1,#2,#3:#4\pgfplots@EOI#5{%
+	\begingroup
+	\def\Ax{#1}%
+	\def\Ay{#2}%
+	\def\Az{#3}%
+	\pgfplotscoordmath{#5}{parsenumber}{#4}\let\S\pgfmathresult
+	%
+	\pgfplotscoordmath{#5}{op}{multiply}{{\Ax}{\S}}\let\Ax=\pgfmathresult
+	\pgfplotscoordmath{#5}{op}{multiply}{{\Ay}{\S}}\let\Ay=\pgfmathresult
+	\pgfplotscoordmath{#5}{op}{multiply}{{\Az}{\S}}\let\Az=\pgfmathresult
+	%
+	\edef\pgfplotsretval{\Ax,\Ay,\Az}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+
+% Takes an input vector #1 = x,y,z and applies the inverse data scale
+% trafo.
+%
+% The result is \pgfplotsretval; it will be in '#2' coordmath for
+% every component.
+\def\pgfplotsmathvectordatascaletrafoinverse#1#2{%
+	\begingroup
+	\edef\pgfplots@loc@TMPa{#1}%
+	\expandafter\pgfplotsmathvectordatascaletrafoinverse@\pgfplots@loc@TMPa\pgfplots@EOI{#2}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}
+\def\pgfplotsmathvectordatascaletrafoinverse@#1,#2,#3\pgfplots@EOI#4{%
+	\begingroup
+	\def\Ax{#1}%
+	\def\Ay{#2}%
+	\def\Az{#3}%
+	\ifpgfplots@apply@datatrafo@x
+		\pgfplotscoordmath{x}{datascaletrafo inverse}{\Ax}\let\Ax=\pgfmathresult
+	\fi
+	\ifpgfplots@apply@datatrafo@y
+		\pgfplotscoordmath{y}{datascaletrafo inverse}{\Ay}\let\Ay=\pgfmathresult
+	\fi
+	\ifpgfplots@curplot@threedim
+		\ifpgfplots@apply@datatrafo@z
+			\pgfplotscoordmath{z}{datascaletrafo inverse}{\Az}\let\Az=\pgfmathresult
+		\fi
+	\fi
+	\pgfplotsmathvectorfromstring{\Ax,\Ay,\Az}{#4}%
+	\pgfmath@smuggleone\pgfplotsretval
+	\endgroup
+}%
+
+
+{
+\catcode`\"=12
+\gdef\pgfplotsDQ{"}%
+\catcode`\|=12
+\gdef\pgfplotsVERTBAR{|}%
+\catcode`\#=12
+\gdef\pgfplotsHASH{#}%
+\catcode`\%=12 \gdef\pgfplotsPERCENT{%}}
+
+\pgfutil@IfUndefined{directlua}{}{%
+	\directlua{require(\pgfplotsDQ pgfplots.lua\pgfplotsDQ)}%
+}%
+
+% swaps the content of two macros
+\def\pgfplotsutil@swap#1#2{%
+	\let\pgfplotsutil@swap@=#1%
+	\let#1=#2%
+	\let#2=\pgfplotsutil@swap@
+}%
 
 \input pgfplotsliststructure.code.tex
 \input pgfplotsliststructureext.code.tex

@@ -403,7 +403,7 @@
 	\pgfplotsscalarproductofvectors
 		{\pgfplots@loc@vector@to@outside}%
 		{\pgfpointdiff
-			{#2}%
+			{#2\pgf@pos@transform\pgf@x\pgf@y}%
 			{\pgfplots@loc@ticklabel@bb@corner}}%
 	\ifdim\pgf@x>\csname pgfplots@maxtickdimen@#1\endcsname\relax
 		\expandafter\xdef\csname pgfplots@maxtickdimen@#1\endcsname{\the\pgf@x}%
@@ -507,13 +507,8 @@
 			\fi
 		}{}%
 	\fi
-	\pgfkeysgetvalue{/pgfplots/#1 coord inv trafo/.@cmd}\pgfplots@loc@TMPa
-	\ifx\pgfplots@loc@TMPa\pgfplots@empty@command@key
-	\else
-		\let\pgfmathresult=\tick%
-		\expandafter\pgfplots@loc@TMPa\expandafter{\tick}\pgfeov
-		\let\tick=\pgfmathresult
-	\fi
+	\pgfplots@coord@inv@trafo@apply{#1}{\tick}%
+	\let\tick=\pgfmathresult
 }%
 
 \def\pgfplots@user@ticklabel@list@x{%
@@ -1056,6 +1051,17 @@
 			\pgfplots@if{pgfplots@#1majorgrids}{\pgfplots@loop@CONTINUEtrue}{}%
 			\pgfplots@if{pgfplots@#1minorgrids}{\pgfplots@loop@CONTINUEtrue}{}%
 			\ifpgfplots@loop@CONTINUE
+				% I support only ONE layer for both, minor and major
+				% grid lines -- no distinction! I am lazy... FIXME
+				\pgfplotsgetlayerforstyle{%
+					every axis grid,%
+					every minor grid,%
+					every axis #1 grid,%
+					every major grid,%
+					every minor #1 grid,%
+					every major #1 grid%
+				}%
+				\pgfplotsonlayer{\pgfplotsretval}{#1 grid style}%
 				\scope
 				\pgfplots@drawgridlines@INSTALLCLIP@onorientedsurf#1%
 				%
@@ -1088,6 +1094,7 @@
 				}{}%
 				%
 				\endscope
+				\endpgfplotsonlayer
 			\fi
 		}{}%
 		\endgroup
@@ -1172,7 +1179,7 @@
 	\pgfplots@if{pgfplots@shownothingof@\pgfplotspointonorientedsurfaceB}{%
 		\relax
 	}{%
-		\scope
+		\begingroup
 		\pgfplots@ifaxisline@B@onorientedsurf@should@be@drawn{0}{%
 			\def\pgfplots@drawticklines@for@placecomputedtick@LOWEROK{1}%
 		}{%
@@ -1217,6 +1224,19 @@
 		\fi
 		\expandafter\let\expandafter\pgfplots@prepared@tick@positions@major@\csname pgfplots@prepared@tick@positions@major@#1\endcsname
 		\expandafter\let\expandafter\pgfplots@prepared@tick@positions@minor@\csname pgfplots@prepared@tick@positions@minor@#1\endcsname
+		%
+		% There is only ONE layer for both, minor and major
+		% tick lines -- no distinction!
+		\pgfplotsgetlayerforstyle{%
+			every tick,%
+			every minor tick,%
+			every #1 tick,%
+			every major tick,%
+			every minor #1 tick,%
+			every major #1 tick%
+		}%
+		\pgfplotsonlayer{\pgfplotsretval}{#1tick style}%
+		\scope
 		\pgfplots@drawticklines@INSTALLCLIP@onorientedsurf#1
 		%
 		\pgfplots@if{pgfplots@#1minorticks}{%
@@ -1262,6 +1282,8 @@
 		}{}%
 		%
 		\endscope
+		\endpgfplotsonlayer
+		\endgroup
 	}%
 }
 
@@ -1324,6 +1346,8 @@
 				\pgfplots@init@scaled@tick@for{#1}%
 			}{\relax}%
 			\begingroup
+			\pgfplotsgetlayerforstyle{every tick label,every #1 tick label}%
+			\pgfplotsonlayer\pgfplotsretval{#1tick label style}%
 			\pgfkeysalso{/tikz/every node/.append style={/pgfplots/every tick label,/pgfplots/every #1 tick label}}%
 			\pgfplots@drawticklabels@onorientedsurf@prepareanchor#1%
 			%
@@ -1347,7 +1371,7 @@
 				\expandafter\let\expandafter\pgfplots@tick@origin\csname pgfplots@logical@ZERO@\pgfplotspointonorientedsurfaceB\endcsname%
 				% FIXME : that stuff here does not respect
 				% '[xyz]tickpos num' keys!
-				\pgfplots@tickposchoiceb
+				\pgfplots@tickposchoiceb%<-- backw. compat, is usually empty.
 				\if r\pgfkeysvalueof{/pgfplots/\pgfplotspointonorientedsurfaceB\space dir/value}%
 					% special handling for reversed axes.
 					\pgfmathmultiply{-1}{\pgfplots@tick@offset}%
@@ -1358,18 +1382,22 @@
 			\else
 				\if0\pgfplots@ticklabelside
 				 	\expandafter\let\expandafter\pgfplots@tick@origin\csname pgfplots@\pgfplotspointonorientedsurfaceB min\endcsname%
-					\pgfplots@tickposchoiceb
+					\pgfplots@tickposchoiceb%<-- backw. compat, is usually empty.
 					%\pgfmathsubtract@{\pgfplots@tick@origin}{\pgfplots@tick@offset}%
 					\edef\pgfplots@tick@offset{-\pgfplots@tick@offset}%
 				\else
 					\if1\pgfplots@ticklabelside
 						\expandafter\let\expandafter\pgfplots@tick@origin\csname pgfplots@\pgfplotspointonorientedsurfaceB max\endcsname%
-						\pgfplots@tickposchoicea
+						\pgfplots@tickposchoicea%<-- backw. compat, is usually empty.
 						%\pgfmathadd@{\pgfplots@tick@origin}{\pgfplots@tick@offset}%
 					\else
+						% FIXME : ticklabelside == 2 is, in principle,
+						% a valid choice. It is the case handled with
+						% "if 2 == pgfplots@#1axislinesnum" above,
+						% isn't it!?
 						\expandafter\let\expandafter\pgfplots@tick@origin\csname pgfplots@logical@ZERO@\pgfplotspointonorientedsurfaceB\endcsname%
 						% FIXME : is that correct!?
-						\pgfplots@tickposchoiceb
+						\pgfplots@tickposchoiceb%<-- backw. compat, is usually empty.
 						%\pgfmathsubtract@{\pgfplots@tick@origin}{\pgfplots@tick@offset}%
 						%\edef\pgfplots@tick@offset{-\pgfplots@tick@offset}%
 						%
@@ -1400,6 +1428,7 @@
 					{\pgfplots@ticknum}%
 			}%
 			\pgfplots@ticklabel@maxtickdimen@finish{#1}%
+			\endpgfplotsonlayer
 			\endgroup
 			\pgfplots@draw@tick@scale@label@for #1%
 		}%
@@ -1766,11 +1795,11 @@
 		\H=\MAX
 		\advance\H by-\MIN
 		\ifdim\H<0pt \H=-1\H \fi
-%\message{Axis limit #1: [\the\MIN:\the\MAX], diff = \the\H.}%
+%\message{Axis limit #1: [\the\MIN:\the\MAX], diff = \the\H.^^J}%
 		\c@pgf@counta=\desirednumticks
 		\advance\c@pgf@counta by-1 %
 		\divide\H by\c@pgf@counta
-%\message{determining ticks for #1-axis: Wr := (width/max space between ticks) = \the\Wr, desirednumticks=max(\axisdefaulttryminticks, trunc(Wr)) = \the\desirednumticks, H#1=(axis range/(desirednumticks-1)) = \the\H}%
+%\message{determining ticks for #1-axis: Wr := (width/max space between ticks) = \the\Wr, desirednumticks=max(\axisdefaulttryminticks, trunc(Wr)) = \the\desirednumticks, H#1=(axis range/(desirednumticks-1)) = \the\H^^J}%
 		%
 		% SEARCH for the NEXT FEASABLE H.
 		\edef\Hmacro{\pgf@sys@tonumber\H}%
@@ -1784,11 +1813,12 @@
 				\pgfmathfloatparsenumber{\Hmacro}%
 				\let\Hmacro=\pgfmathresult
 			\fi
-%\message{Got T^{-1}(H#1) = \Hmacro}%
+%\message{Got T^{-1}(H#1) = \Hmacro^^J}%
 			%
 			\pgfplots@assign@default@tick@foraxis@normalizetickdist#1\Hmacro
 			\let\Hmacro=\pgfmathresult
 			%
+%\message{snapped-to-nicest = \Hmacro^^J}%
 			\aftergroup\pgfplots@isuniformticktrue
 			% The following code is carried out in floating point
 			% arithmetics because it requires large data ranges.
@@ -1919,21 +1949,33 @@
 		% MIN < ORIGMIN by construction (ok, MIN <= ORIGMIN by
 		% construction, but I don't care about this case). 
 		% So: check only the second condition.
+%\message{Got MIN=\pgf@sys@tonumber\MIN; H=\pgf@sys@tonumber\H; MAX=\pgf@sys@tonumber\MAX.^^J}%
 		\def\pgfplots@tick@returnval@ready{0}%
 		\pgfplots@tmpa=\MINH
 		\advance\pgfplots@tmpa by\H
 		\ifdim\MAX<\pgfplots@tmpa
 			\pgfplots@if{pgfplots@#1islinear}{%
-				\def\pgfplots@tick@returnval@ready{1}%
 				\begingroup
-					\c@pgf@counta=\axisdefaulttryminticks\relax
-					\advance\c@pgf@counta by1
-					\edef\axisdefaulttryminticks{\the\c@pgf@counta}%
-%\message{**TOO FEW TICK LABELS. RECURSION with try min ticks=\axisdefaulttryminticks.**}%
-					% recurse.
-					\pgfplots@assign@default@tick@foraxis{#1}%
-					\expandafter\global\expandafter\let\expandafter\pgfplots@glob@TMPa\csname pgfplots@#1tick\endcsname
-					\expandafter\global\expandafter\let\expandafter\pgfplots@glob@TMPb\csname pgfplots@tick@distance@#1\endcsname
+					\def\pgfplots@tick@returnval@ready{1}%
+					\pgfutil@ifundefined{pgfplots@assign@default@tick@foraxis@recurselevel}{%
+						\def\pgfplots@assign@default@tick@foraxis@recurselevel{1}%
+					}{%
+						\pgfplotsutil@advancestringcounter\pgfplots@assign@default@tick@foraxis@recurselevel
+					}%
+					\ifnum\pgfplots@assign@default@tick@foraxis@recurselevel<15
+						\c@pgf@counta=\axisdefaulttryminticks\relax
+						\advance\c@pgf@counta by1
+						\edef\axisdefaulttryminticks{\the\c@pgf@counta}%
+%\message{**TOO FEW TICK LABELS FOR #1. RECURSION with try min ticks=\axisdefaulttryminticks.**^^J}%
+						% recurse.
+						\pgfplots@assign@default@tick@foraxis{#1}%
+						\expandafter\global\expandafter\let\expandafter\pgfplots@glob@TMPa\csname pgfplots@#1tick\endcsname
+						\expandafter\global\expandafter\let\expandafter\pgfplots@glob@TMPb\csname pgfplots@tick@distance@#1\endcsname
+					\else
+						\pgfplots@warning{Tick computation for direction #1 failed; there are always too few tick labels (try min ticks has already been advanced to \axisdefaulttryminticks)}%
+						\def\pgfplots@tick@returnval@ready{0}%
+					\fi
+					\pgfmath@smuggleone\pgfplots@tick@returnval@ready
 				\endgroup
 			}{%
 				% Case logarithmic axes and too few ticks.
@@ -2030,7 +2072,7 @@
 %
 % Example:
 % \pgfmathfloatparsenumber{x}{1234}
-% \pgfplots@assign@default@tick@foraxis@normalizetickdist\pgfmathresult
+% \pgfplots@assign@default@tick@foraxis@normalizetickdist{x}{\pgfmathresult}
 % \pgfmathfloatotfixed\pgfmathresult
 % -->
 %

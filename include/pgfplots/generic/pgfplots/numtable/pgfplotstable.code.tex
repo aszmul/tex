@@ -58,7 +58,7 @@
 
 % just make sure no-one complaints if manual example are used without
 % booktabs loaded:
-\pgfutil@ifundefined{toprule}{%
+\pgfutil@IfUndefined{toprule}{%
 	\def\toprule{\pgfplots@assert@LaTeX@package@loaded{booktabs}{\string\toprule}}%
 	\def\midrule{\pgfplots@assert@LaTeX@package@loaded{booktabs}{\string\midrule}}%
 	\def\bottomrule{\pgfplots@assert@LaTeX@package@loaded{booktabs}{\string\bottomrule}}%
@@ -913,6 +913,12 @@
 		\else
 			\pgfkeyssetvalue{/pgfplots/table/@cell content}{#1&}%
 		\fi
+	},
+	% this can be omitted to omit the header row:
+	/pgfplots/table/output empty row/.style={%
+		/pgfplots/table/typeset cell/.code={%
+			\pgfkeyslet{/pgfplots/table/@cell content}\pgfutil@empty%
+		}%
 	},
 	/pgfplots/table/reset styles/.style={
 		/pgfplots/table/every table/.code=,
@@ -1930,8 +1936,11 @@
 			\noexpand\def\noexpand\pgfplotstable@before{\the\t@pgfplots@toka}%
 			\noexpand\def\noexpand\pgfplotstable@after{\the\t@pgfplots@tokb}%
 		}%
+		\pgfkeysgetvalue{/pgfplots/table/typeset cell/.@cmd}\pgfplots@loc@TMPa
+		\global\let\pgfplots@glob@TMPd=\pgfplots@loc@TMPa
 		\endgroup
 		\pgfplots@glob@TMPc
+		\let\pgfplotstable@headrow@typesetcell=\pgfplots@glob@TMPd
 		% insert 'before row' here:
 		\t@pgfplots@toka=\expandafter{\pgfplotstable@before}%
 		\t@pgfplots@tokb=\expandafter{\pgfplotstable@curline}%
@@ -1942,8 +1951,7 @@
 			%
 			\advance\c@pgfplotstable@colindex by1\relax
 			% typeset the cell:
-			\pgfkeysgetvalue{/pgfplots/table/typeset cell/.@cmd}\pgfplots@loc@TMPa
-			\expandafter\pgfplots@loc@TMPa\pgfplotstable@colname@out\pgfeov
+			\expandafter\pgfplotstable@headrow@typesetcell\pgfplotstable@colname@out\pgfeov
 			\pgfkeysgetvalue{/pgfplots/table/@cell content}\pgfmathresult
 			%
 			% append this cell:
@@ -2540,6 +2548,7 @@
 			\fi
 		\fi
 		%
+		% The column NAMES are collected into this list:
 		\global\pgfplotslistnewempty\pgfplotstable@colnames@glob
 		% this thing counts output columns:
 		\let\c@pgfplotstable@numoutcols=\c@pgf@countd
@@ -2570,8 +2579,8 @@
 					\expandafter\pgfplotslist@assembleentry\expandafter{\pgfplots@colname}\into\t@pgfplots@tokc
 					\def\pgfplotstableread@TMP{\expandafter\pgfplotsapplistXpushback\expandafter{\the\t@pgfplots@tokc}\to}%
 					\expandafter\pgfplotstableread@TMP\csname pgfp@numtable@glob@col@\the\c@pgfplotstable@rowindex\endcsname
-					\advance\c@pgfplotstable@rowindex by1
 				\fi
+				\advance\c@pgfplotstable@rowindex by1
 			\fi
 			%
 			\pgfplotstableforeachcolumnelement\pgfplots@colname\of#3\as\pgfplots@cell{%
@@ -2609,8 +2618,8 @@
 					\expandafter\pgfplotslist@assembleentry\expandafter{\pgfplots@cell}\into\t@pgfplots@tokc
 					\def\pgfplotstableread@TMP{\expandafter\pgfplotsapplistXpushback\expandafter{\the\t@pgfplots@tokc}\to}%
 					\expandafter\pgfplotstableread@TMP\csname pgfp@numtable@glob@col@\the\c@pgfplotstable@rowindex\endcsname
-					\advance\c@pgfplotstable@rowindex by1
 				\fi
+				\advance\c@pgfplotstable@rowindex by1
 			}%
 			\def\pgfplotstable@isfirstcol{0}%
 		}%
@@ -2692,7 +2701,7 @@
 		\else
 			\ifx\pgfplotstable@variance@table\pgfutil@empty
 				\t@pgfplots@toka=\expandafter{\pgfplotstable@table}%
-				\t@pgfplots@tokb=\expandafter{\pgfplotstable@variance@table}%
+				\t@pgfplots@tokb=\expandafter{\pgfplotstable@variance@colname}%
 				\edef\pgfplots@loc@TMPa{{\the\t@pgfplots@tokb}\noexpand\of{\the\t@pgfplots@toka}}%
 				\expandafter\pgfplotstablegetcolumn\pgfplots@loc@TMPa\to\pgfplotstable@VARIANCE
 			\else
@@ -2946,7 +2955,7 @@
 	\pgfplotstable@copy@globalbuffers@to{#1}%
 }%
 
-\pgfutil@ifundefined{pgfcalendardatetojulian}{%
+\pgfutil@IfUndefined{pgfcalendardatetojulian}{%
 	\def\pgfcalendardatetojulian#1#2{\pgfplots@error{Sorry, you need to use \string\usepackage{pgfcalendar} before using date specific methods}}%
 }{}%
 \endinput
