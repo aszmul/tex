@@ -7,7 +7,7 @@
 %
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
-\ProvidesFileRCS $Header: /cvsroot/pgf/pgf/generic/pgf/modules/pgfmoduleshapes.code.tex,v 1.13 2010/09/09 13:52:57 cjorssen Exp $
+\ProvidesFileRCS $Header: /cvsroot-fuse/pgf/pgf/generic/pgf/modules/pgfmoduleshapes.code.tex,v 1.23 2012/11/20 23:41:04 tantau Exp $
 
 
 
@@ -43,7 +43,7 @@
     {%
       \let\pgf@sh@savedmacros=\pgfutil@empty% MW
       \let\pgf@sh@savedpoints=\pgfutil@empty%
-      \def\shape@name{#1}% CJ
+      \def\pgf@sm@shape@name{#1}% CJ % TT added prefix!
       \csname pgf@sh@s@#1\endcsname%
       \pgf@sh@savedpoints%
       \pgf@sh@savedmacros% MW
@@ -57,15 +57,8 @@
       }%
       % Save the saved points and the transformation matrix
       \edef\pgf@node@name{#3}%
-      \ifx\pgf@positionnodelater@macro\relax%
-      \else%
-        % Rename node
-        \edef\pgf@node@name{not yet positioned@\pgf@node@name}%
-        % Interrupt bounding box!
-        \pgfinterruptboundingbox%
-          % Put everything in our box:
-          \setbox\pgfpositionnodelaterbox=\hbox\bgroup%
-        %
+      \ifpgflatenodepositioning
+        \pgf@shapes@late@pos@begin%
       \fi%
       \ifx\pgf@node@name\pgfutil@empty%
       \else%
@@ -98,23 +91,44 @@
       {\csname pgf@sh@fg@#1\endcsname#4}%
       \pgfutil@ifundefined{pgf@sh@ffg@#1}{}%
       {{\pgfscope\csname pgf@sh@ffg@#1\endcsname\endpgfscope}}%
-      \ifx\pgf@positionnodelater@macro\relax%
-        \expandafter\pgf@nodecallback\expandafter{\pgf@node@name}%
+      \ifpgflatenodepositioning%
+        \pgf@shapes@late@pos@end%
       \else%
-          \egroup% Close box
-          \edef\pgfpositionnodelaterminx{\the\pgf@picminx}%
-          \edef\pgfpositionnodelaterminy{\the\pgf@picminy}%
-          \edef\pgfpositionnodelatermaxx{\the\pgf@picmaxx}%
-          \edef\pgfpositionnodelatermaxy{\the\pgf@picmaxy}%
-          \let\pgfpositionnodelatername=\pgf@node@name%
-          \pgf@positionnodelater@macro%
-        \endpgfinterruptboundingbox%
+        \expandafter\pgf@nodecallback\expandafter{\pgf@node@name}%
       \fi%
     }%
   }%
 }
 
-
+\def\pgf@shapes@late@pos@begin{%
+  % Rename node
+  \edef\pgf@node@name{not yet positionedPGFINTERNAL\pgf@node@name}%
+  % Interrupt bounding box!
+  \pgfinterruptboundingbox%
+    % Put everything in our box:
+    \pgf@relevantforpicturesizetrue%
+    \setbox\pgfpositionnodelaterbox=\hbox%
+      \bgroup%
+}
+  
+\def\pgf@shapes@late@pos@end{%
+      \egroup% Close box
+    \ifdim\pgf@picminx>\pgf@picmaxx\relax% happens for empty nodes
+      \def\pgfpositionnodelaterminx{0.0pt}%
+      \let\pgfpositionnodelaterminy\pgfpositionnodelaterminx%
+      \let\pgfpositionnodelatermaxx\pgfpositionnodelaterminx%
+      \let\pgfpositionnodelatermaxy\pgfpositionnodelaterminx%
+    \else%
+      \edef\pgfpositionnodelaterminx{\the\pgf@picminx}%
+      \edef\pgfpositionnodelaterminy{\the\pgf@picminy}%
+      \edef\pgfpositionnodelatermaxx{\the\pgf@picmaxx}%
+      \edef\pgfpositionnodelatermaxy{\the\pgf@picmaxy}%
+    \fi%
+    \let\pgfpositionnodelatername=\pgf@node@name%
+    \pgf@positionnodelater@macro%
+  \endpgfinterruptboundingbox%
+}
+      
 \def\pgf@shift@node#1#2{%
   % This internal command shifts the recorded coordinates for node #1
   % by the vector #2. It is used to
@@ -199,7 +213,7 @@
 %   \pgfpositionnodelatername
 %   The name of the just-created-node. This name will be the
 %   originally "desired" name of the box plus the prefix "not yet
-%   positioned box@".
+%   positioned boxPGFINTERNAL".
 %
 %   \pgfpositionnodelaterminx
 %   \pgfpositionnodelatermaxx
@@ -218,9 +232,19 @@
 % When \pgfpositionnodenow is called, the macros mentioned above
 % should have the exact same values they had when #1 is called.
 
-\def\pgfpositionnodelater#1{\let\pgf@positionnodelater@macro=#1\relax}
+\def\pgfpositionnodelater#1{%
+  \let\pgf@positionnodelater@macro=#1%
+  \ifx\pgf@positionnodelater@macro\relax%
+    \pgflatenodepositioningfalse%
+  \else%
+    \pgflatenodepositioningtrue%
+  \fi%
+}
+\newif\ifpgflatenodepositioning
 \pgfpositionnodelater{\relax}
 \def\pgfpositionnodelaterbox{0}
+
+
 
 
 % Position a node that has been scheduled for later insertion
@@ -232,7 +256,7 @@
 %
 % This command works in concert with \pgfpositionnodelater, see the
 % description there. When \pgfpositionnodenow is called, the macros
-% \pgfpositionnodelaterbox and so one should be set to the values they
+% \pgfpositionnodelaterbox and so on should be set to the values they
 % had when the macro given to \pgfpositionnodelater was called. Then,
 % the box described by these macros will be inserted into the picture
 % at the position given #1. More precisely, the original node will
@@ -241,6 +265,7 @@
 % into the actual picture.
 
 \def\pgfpositionnodenow#1{%
+  \pgfinterruptpath%
   {%
     \pgfpointtransformed{#1}%
     \edef\pgf@temp@shift{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}
@@ -257,15 +282,65 @@
     % Naming and callbacks
     \expandafter\pgfpositionnodenow@rename\pgfpositionnodelatername\relax%
   }%
+  % Late setup%
+  {%
+    \csname pgf@lns@\pgfpositionnodelatername\endcsname%  
+    \expandafter\global\expandafter\let\csname pgf@lns@\pgfpositionnodelatername\endcsname\relax%  
+  }%
+  \endpgfinterruptpath%
 }
 
-\def\pgfpositionnodenow@rename not yet positioned@#1\relax{%
-  \pgfnoderename{#1}{not yet positioned@#1}
+\def\pgfpositionnodenow@rename not yet positionedPGFINTERNAL#1\relax{%
+  \pgfnoderename{#1}{not yet positionedPGFINTERNAL#1}
   \pgf@nodecallback{#1}%
 }
 
 
 
+% "Fake" a node 
+% 
+% #1 = node name
+% 
+% Description:
+% 
+% This command will setup things so that it "looks like" a node named
+% #1 has been created, but, in reality, no node is created. The idea
+% is that a node created in this way can be referenced by systems
+% using the late positioning, which will only create the node later
+% on.
+%
+\def\pgffakenode#1{%
+  \edef\pgf@temp{\ifpgflatenodepositioning not yet positionedPGFINTERNAL\fi#1}%
+  \expandafter\gdef\csname pgf@sh@ns@\pgf@temp\endcsname{coordinate}%
+  \expandafter\gdef\csname pgf@sh@np@\pgf@temp\endcsname{\def\centerpoint{\pgfpointorigin}}%
+  \expandafter\gdef\csname pgf@sh@nt@\pgf@temp\endcsname{{1}{0}{0}{1}{0pt}{0pt}}%
+  \expandafter\global\expandafter\let\csname pgf@sh@ma@\pgf@temp\endcsname\pgfutil@empty%
+  \expandafter\gdef\csname pgf@sh@pi@\pgf@temp\endcsname{\pgfpictureid}%
+}
+
+
+
+% Specify code that should be executed after a node has been created
+%
+% #1 = node name
+% #2 = later code
+%
+% Description:
+%
+% This macro allows you to provide some code #2 that will be executed
+% right after a node has been positioned using \pgfpositionnodenow. If
+% the node has already been positioned (if the late positioning is not
+% switched on), nothing happens.
+
+\def\pgfnodepostsetupcode#1#2{%
+  \ifpgflatenodepositioning%
+    \expandafter\ifx\csname pgf@lns@not yet positionedPGFINTERNAL#1\endcsname\relax%
+      \expandafter\gdef\csname pgf@lns@not yet positionedPGFINTERNAL#1\endcsname{#2}%
+    \else%
+      \expandafter\pgfutil@g@addto@macro\csname pgf@lns@not yet positionedPGFINTERNAL#1\endcsname{#2}%
+    \fi%
+  \fi%
+}
 
 
 
@@ -334,19 +409,23 @@
   \edef\pgf@temp{#1}%
   \ifx\pgf@temp\pgfutil@empty% do nothing
   \else%
-    \pgf@process{\pgfpointtransformed{#2}}%
-    \expandafter\gdef\csname pgf@sh@ns@#1\endcsname{coordinate}%
-    \expandafter\xdef\csname pgf@sh@np@#1\endcsname{%
-      \noexpand\def\noexpand\centerpoint{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
-    }
-    \expandafter\gdef\csname pgf@sh@nt@#1\endcsname{{1}{0}{0}{1}{0pt}{0pt}}%
-    \expandafter\global\expandafter\let\csname pgf@sh@ma@#1\endcsname\pgfutil@empty%
-    \expandafter\gdef\csname pgf@sh@pi@#1\endcsname{\pgfpictureid}%
+    \ifpgflatenodepositioning%
+      {\pgftransformshift{#2}\pgfnode{coordinate}{center}{}{#1}{}}%
+    \else%
+      \pgf@process{\pgfpointtransformed{#2}}%
+      \expandafter\gdef\csname pgf@sh@ns@#1\endcsname{coordinate}%
+      \expandafter\xdef\csname pgf@sh@np@#1\endcsname{%
+        \noexpand\def\noexpand\centerpoint{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+      }
+      \expandafter\gdef\csname pgf@sh@nt@#1\endcsname{{1}{0}{0}{1}{0pt}{0pt}}%
+      \expandafter\global\expandafter\let\csname pgf@sh@ma@#1\endcsname\pgfutil@empty%
+      \expandafter\gdef\csname pgf@sh@pi@#1\endcsname{\pgfpictureid}%
+    \fi%
   \fi%
 }
 
 \def\pgf@sh@redeferredanchor#1#2{% CJ
-  \expandafter\gdef\csname pgf@anchor@\shape@name @#1\endcsname{#2}}% CJ
+  \expandafter\gdef\csname pgf@anchor@\pgf@sm@shape@name @#1\endcsname{#2}}% CJ
 
 
 
@@ -414,7 +493,7 @@
 % can be used to query the referenced node's name.
 % This macro is not defined during node creation.
 \def\pgfdeclaregenericanchor#1#2{%
-	\expandafter\def\csname pgf@anchor@generic@#1\endcsname##1{#2}%
+  \expandafter\def\csname pgf@anchor@generic@#1\endcsname##1{#2}%
 }%
 
 
@@ -435,7 +514,10 @@
 \def\pgfpointanchor#1#2{%
   % Ok, check whether #1 is known!
   \pgfutil@ifundefined{pgf@sh@ns@#1}
-  {\PackageError{pgf}{No shape named #1 is known}{}%
+  {\pgfutil@ifundefined{pgf@sh@ns@not yet positionedPGFINTERNAL#1}{%
+      \PackageError{pgf}{No shape named #1 is known}{}}{
+      % else, fail silently
+    }%
     \pgfpointorigin}%
   {%
     \pgf@process{%
@@ -605,7 +687,7 @@
 
 \long\def\pgfdeclareshape#1#2{%
   {
-    \def\shape@name{#1}
+    \def\pgf@sm@shape@name{#1}
     \let\savedanchor=\pgf@sh@savedanchor
     \let\saveddimen=\pgf@sh@saveddimen
     \let\savedmacro=\pgf@sh@savedmacro% MW
@@ -632,48 +714,48 @@
     \anchorborder{\csname pgf@anchor@#1@center\endcsname}%
     \anchor{text}{\pgfpointorigin}%
     \nodeparts{text}%
-    \expandafter\global\expandafter\let\csname pgf@sh@s@\shape@name\endcsname=\pgfutil@empty%
+    \expandafter\global\expandafter\let\csname pgf@sh@s@\pgf@sm@shape@name\endcsname=\pgfutil@empty%
     #2
   }
 }
 
 \def\pgf@sh@savedanchor#1#2{%
-  \expandafter\pgfutil@g@addto@macro\csname pgf@sh@s@\shape@name\endcsname{\pgf@sh@resavedanchor{#1}{#2}}}
+  \expandafter\pgfutil@g@addto@macro\csname pgf@sh@s@\pgf@sm@shape@name\endcsname{\pgf@sh@resavedanchor{#1}{#2}}}
 \def\pgf@sh@saveddimen#1#2{%
-  \expandafter\pgfutil@g@addto@macro\csname pgf@sh@s@\shape@name\endcsname{\pgf@sh@resaveddimen{#1}{#2}}}
+  \expandafter\pgfutil@g@addto@macro\csname pgf@sh@s@\pgf@sm@shape@name\endcsname{\pgf@sh@resaveddimen{#1}{#2}}}
  \def\pgf@sh@savedmacro#1#2{% MW
-  \expandafter\pgfutil@g@addto@macro\csname pgf@sh@s@\shape@name\endcsname{\pgf@sh@resavedmacro{#1}{#2}}}% MW
-\def\pgf@sh@anchor#1#2{\expandafter\gdef\csname pgf@anchor@\shape@name @#1\endcsname{#2}}
+  \expandafter\pgfutil@g@addto@macro\csname pgf@sh@s@\pgf@sm@shape@name\endcsname{\pgf@sh@resavedmacro{#1}{#2}}}% MW
+\def\pgf@sh@anchor#1#2{\expandafter\gdef\csname pgf@anchor@\pgf@sm@shape@name @#1\endcsname{#2}}
 \def\pgf@sh@deferredanchor#1#2{% CJ
   \expandafter\pgfutil@g@addto@macro
-    \csname pgf@sh@s@\shape@name\endcsname{\pgf@sh@redeferredanchor{#1}{#2}}}% CJ
-\def\pgf@sh@anchorborder#1{\expandafter\gdef\csname pgf@anchor@\shape@name @border\endcsname##1{\pgf@process{##1}#1}}
-\long\def\pgf@sh@behindbgpath#1{\expandafter\gdef\csname pgf@sh@bbg@\shape@name\endcsname{#1}}
-\long\def\pgf@sh@bgpath#1{\expandafter\gdef\csname pgf@sh@bg@\shape@name\endcsname{#1}}
-\long\def\pgf@sh@beforebgpath#1{\expandafter\gdef\csname pgf@sh@fbg@\shape@name\endcsname{#1}}
-\long\def\pgf@sh@behindfgpath#1{\expandafter\gdef\csname pgf@sh@bfg@\shape@name\endcsname{#1}}
-\long\def\pgf@sh@fgpath#1{\expandafter\gdef\csname pgf@sh@fg@\shape@name\endcsname{#1}}
-\long\def\pgf@sh@beforefgpath#1{\expandafter\gdef\csname pgf@sg@ffg@\shape@name\endcsname{#1}}
-\def\pgf@sh@boxes#1{\expandafter\gdef\csname pgf@sh@boxes@\shape@name\endcsname{#1}}
+    \csname pgf@sh@s@\pgf@sm@shape@name\endcsname{\pgf@sh@redeferredanchor{#1}{#2}}}% CJ
+\def\pgf@sh@anchorborder#1{\expandafter\gdef\csname pgf@anchor@\pgf@sm@shape@name @border\endcsname##1{\pgf@process{##1}#1}}
+\long\def\pgf@sh@behindbgpath#1{\expandafter\gdef\csname pgf@sh@bbg@\pgf@sm@shape@name\endcsname{#1}}
+\long\def\pgf@sh@bgpath#1{\expandafter\gdef\csname pgf@sh@bg@\pgf@sm@shape@name\endcsname{#1}}
+\long\def\pgf@sh@beforebgpath#1{\expandafter\gdef\csname pgf@sh@fbg@\pgf@sm@shape@name\endcsname{#1}}
+\long\def\pgf@sh@behindfgpath#1{\expandafter\gdef\csname pgf@sh@bfg@\pgf@sm@shape@name\endcsname{#1}}
+\long\def\pgf@sh@fgpath#1{\expandafter\gdef\csname pgf@sh@fg@\pgf@sm@shape@name\endcsname{#1}}
+\long\def\pgf@sh@beforefgpath#1{\expandafter\gdef\csname pgf@sg@ffg@\pgf@sm@shape@name\endcsname{#1}}
+\def\pgf@sh@boxes#1{\expandafter\gdef\csname pgf@sh@boxes@\pgf@sm@shape@name\endcsname{#1}}
 
 \def\pgf@sh@inheritsavedanchors[from=#1]{%
-  \expandafter\pgfutil@g@addto@macro\csname pgf@sh@s@\shape@name\endcsname{\csname pgf@sh@s@#1\endcsname}}
+  \expandafter\pgfutil@g@addto@macro\csname pgf@sh@s@\pgf@sm@shape@name\endcsname{\csname pgf@sh@s@#1\endcsname}}
   
  \def\pgf@sh@inheritanchor[from=#1]#2{%
   \edef\pgf@marshal{\global\let\expandafter\noexpand\csname
-    pgf@anchor@\shape@name @#2\endcsname=\expandafter\noexpand\csname
+    pgf@anchor@\pgf@sm@shape@name @#2\endcsname=\expandafter\noexpand\csname
     pgf@anchor@#1@#2\endcsname}%
   \pgf@marshal%
 }
 \def\pgf@sh@inheritanchorborder[from=#1]{%
   \edef\pgf@marshal{\global\let\expandafter\noexpand\csname
-    pgf@anchor@\shape@name @border\endcsname=\expandafter\noexpand\csname
+    pgf@anchor@\pgf@sm@shape@name @border\endcsname=\expandafter\noexpand\csname
     pgf@anchor@#1@border\endcsname}%
   \pgf@marshal%
 }
 \def\pgf@sh@inheritor#1#2{%
   \edef\pgf@marshal{\global\let\expandafter\noexpand\csname
-    pgf@sh@#1@\shape@name\endcsname=\expandafter\noexpand\csname
+    pgf@sh@#1@\pgf@sm@shape@name\endcsname=\expandafter\noexpand\csname
     pgf@sh@#1@#2\endcsname}%
   \pgf@marshal%
 }
@@ -978,7 +1060,20 @@
     \expandafter\gdef\csname pgf@lbb@miny@#1\endcsname{16000pt}%
     \pgf@size@hookedtrue%
     \expandafter\def\expandafter\pgf@path@size@hook\expandafter{\pgf@path@size@hook\pgf@lbb@do{#1}}
-  }%
+  },
+  /pgf/freeze local bounding box/.code={%
+    {%
+      \csname pgf@sh@np@#1\endcsname%
+      \southwest%
+      \pgf@xa=\pgf@x%
+      \pgf@ya=\pgf@y%
+      \northeast%
+      \expandafter\xdef\csname pgf@sh@np@#1\endcsname{%
+        \noexpand\def\noexpand\southwest{\noexpand\pgfqpoint{\the\pgf@xa}{\the\pgf@ya}}%
+        \noexpand\def\noexpand\northeast{\noexpand\pgfqpoint{\the\pgf@x}{\the\pgf@y}}%
+      }%
+    }%  
+  }
 }
 \def\pgf@lbb@do#1{%
   \ifdim\pgf@size@hook@x<\csname pgf@lbb@minx@#1\endcsname\expandafter\xdef\csname pgf@lbb@minx@#1\endcsname{\the\pgf@size@hook@x}\fi%
@@ -1121,7 +1216,7 @@
   %
   % Background path
   %
-  \backgroundpath{
+  \backgroundpath{%
     \pgfutil@tempdima=\radius%
     \pgfmathsetlength{\pgf@xb}{\pgfkeysvalueof{/pgf/outer xsep}}%  
     \pgfmathsetlength{\pgf@yb}{\pgfkeysvalueof{/pgf/outer ysep}}%  

@@ -7,7 +7,7 @@
 %
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
-\ProvidesFileRCS[v\pgfversion] $Header: /cvsroot/pgf/pgf/generic/pgf/libraries/pgflibraryplothandlers.code.tex,v 1.15 2010/05/31 10:11:22 tantau Exp $
+\ProvidesFileRCS[v\pgfversion] $Header: /cvsroot-fuse/pgf/pgf/generic/pgf/libraries/pgflibraryplothandlers.code.tex,v 1.17 2012/09/11 20:03:46 ludewich Exp $
 
 \newif\ifpgf@plot@started
 
@@ -375,12 +375,19 @@
 \pgfplotyzerolevelstreamconstant{0pt}%
 
 \def\pgfplotbarwidth{\pgfkeysvalueof{/pgf/bar width}}
+\def\pgfplotbarshift{\pgfkeysvalueof{/pgf/bar shift}}
 
 \pgfqkeys{/pgf}{%
 	bar width/.initial=10pt,
 	bar shift/.initial=0pt,
 	bar interval width/.initial=1,
 	bar interval shift/.initial=0.5,
+	%
+	% hook which is executed right before a new bar is begun.
+	at begin bar/.initial=,
+	% hook which is executed right after a bar path has been finished.
+	% In this context, the bar's path has not been used.
+	at end bar/.initial=,
 }
 
 % This handler places a rectangle at each point in the plot stream, a
@@ -402,13 +409,14 @@
     \global\let\pgf@plotstreamend=\pgfplotyzerolevelstreamend%
 	\pgfmathparse{\pgfplotbarwidth}%
 	\xdef\pgfplotbarwidth@{\pgfmathresult pt}%
-	\pgfmathparse{\pgfkeysvalueof{/pgf/bar shift}}%
+	\pgfmathparse{\pgfplotbarshift}%
 	\xdef\pgfplotbarshift@{\pgfmathresult pt}%
 	\pgfplotyzerolevelstreamstart
   }%
 }
 
 \def\pgf@plot@ybar@handler#1{%
+  \pgfkeysvalueof{/pgf/at begin bar}%
   \pgf@process{#1}%
   \pgf@ya=\pgf@y
   \expandafter\pgf@xb\pgfplotbarwidth@\relax
@@ -423,6 +431,7 @@
   \pgfpathrectangle
 	{\pgfqpoint{\pgf@xc}{\pgf@yb}}%
 	{\pgfqpoint{\pgf@xb}{\pgf@ya}}%
+  \pgfkeysvalueof{/pgf/at end bar}%
 }
 
 % This handler places a rectangle at each point in the plot stream, a
@@ -444,13 +453,14 @@
     \global\let\pgf@plotstreamend=\pgfplotxzerolevelstreamend%
 	\pgfmathparse{\pgfplotbarwidth}%
 	\xdef\pgfplotbarwidth@{\pgfmathresult pt}%
-	\pgfmathparse{\pgfkeysvalueof{/pgf/bar shift}}%
+	\pgfmathparse{\pgfplotbarshift}%
 	\xdef\pgfplotbarshift@{\pgfmathresult pt}%
 	\pgfplotxzerolevelstreamstart
   }%
 }
 
 \def\pgf@plot@xbar@handler#1{%
+  \pgfkeysvalueof{/pgf/at begin bar}%
   \pgf@process{#1}%
   \pgf@ya=\pgf@x
   \expandafter\pgf@xb\pgfplotbarwidth@\relax
@@ -465,6 +475,7 @@
   \pgfpathrectangle
 	{\pgfqpoint{\pgf@yb}{\pgf@xc}}%
 	{\pgfqpoint{\pgf@ya}{\pgf@xb}}%
+  \pgfkeysvalueof{/pgf/at end bar}%
 }
 
 % This handler is a variant of \pgfplothandlerybar which works with
@@ -520,6 +531,7 @@
   \global\let\pgf@plotstreampoint=\pgf@plot@ybarinterval@handler%
 }
 \def\pgf@plot@ybarinterval@handler#1{%
+  \pgfkeysvalueof{/pgf/at begin bar}%
   \pgf@process{#1}%
   \pgf@ya=\pgf@plot@barinterval@bar
   \xdef\pgf@plot@barinterval@bar{\the\pgf@y}%
@@ -538,6 +550,7 @@
   \pgfpathrectangle
 	{\pgfqpoint{\pgf@xc}{\pgf@yb}}%
 	{\pgfqpoint{\pgf@xb}{\pgf@ya}}%
+  \pgfkeysvalueof{/pgf/at end bar}%
 }
 
 % Like \pgfplothandlerybarinterval but for xbar.
@@ -561,6 +574,7 @@
   \global\let\pgf@plotstreampoint=\pgf@plot@xbarinterval@handler%
 }
 \def\pgf@plot@xbarinterval@handler#1{%
+  \pgfkeysvalueof{/pgf/at begin bar}%
   \pgf@process{#1}%
   \pgf@ya=\pgf@plot@barinterval@bar
   \xdef\pgf@plot@barinterval@bar{\the\pgf@x}%
@@ -579,6 +593,7 @@
   \pgfpathrectangle
 	{\pgfqpoint{\pgf@yb}{\pgf@xc}}%
 	{\pgfqpoint{\pgf@ya}{\pgf@xb}}%
+  \pgfkeysvalueof{/pgf/at end bar}%
 }
 
 
@@ -651,6 +666,45 @@
   \pgfpathlineto{\pgfqpoint{\pgf@yb}{\pgf@ya}}%
   \pgfpathlineto{\pgfqpoint{\pgf@xa}{\pgf@ya}}%
   \xdef\pgf@plot@const@line@handler@last{\the\pgf@xa}%
+}
+
+% A variant of \pgfplothandlerconstantlineto which places its mark on
+% the middle of the line segment.
+%
+%               ----x
+%               |
+%   --x---      |
+%   |    |--x----
+% x--
+%
+% Example:
+%
+% \pgfplothandlerconstantlinetomarkmid
+% \pgfplotxyfile{mytable}
+\def\pgfplothandlerconstantlinetomarkmid{%
+  \def\pgf@plotstreamstart{%
+    \global\let\pgf@plotstreampoint=\pgf@plot@const@line@mark@mid@handler%
+    \global\let\pgf@plotstreamspecial=\pgfutil@gobble%
+    \global\let\pgf@plotstreamend=\relax%
+  }%
+}
+\def\pgf@plot@const@line@mark@mid@handler#1{%
+  \pgf@process{#1}%
+  \xdef\pgf@plot@const@line@handler@last{\global\pgf@x=\the\pgf@x\space\global\pgf@y=\the\pgf@y\space}%
+  \pgf@plot@first@action{}%
+  \global\let\pgf@plotstreampoint=\pgf@plot@const@line@mark@mid@handler@@%
+}
+\def\pgf@plot@const@line@mark@mid@handler@@#1{%
+  \pgf@process{#1}%
+  \pgf@xa=\pgf@x
+  \pgf@ya=\pgf@y
+  \pgf@plot@const@line@handler@last
+  \pgf@xc=.5\pgf@xa
+  \advance\pgf@xc by.5\pgf@x
+  \pgfpathlineto{\pgfqpoint{\pgf@xc}{\pgf@y}}%
+  \pgfpathlineto{\pgfqpoint{\pgf@xc}{\pgf@ya}}%
+  \pgfpathlineto{\pgfqpoint{\pgf@xa}{\pgf@ya}}%
+  \xdef\pgf@plot@const@line@handler@last{\global\pgf@x=\the\pgf@x\space\global\pgf@y=\the\pgf@y\space}%
 }
 
 % This handler is in fact a variant of \pgfplothandlerconstantlineto,
@@ -727,6 +781,46 @@
   \xdef\pgf@plot@const@line@handler@last{\the\pgf@ya}%
 }
 
+% This handler is in fact a variant of
+% \pgfplothandlerconstantlinetomarkmid,
+% but it does not draw vertical lines. It produces a sequence of
+% line-to and move-to operations such that plot marks are placed like
+%
+%             ----x
+%             
+%   --x--     
+%       --x----
+% x--
+%
+% Example:
+%
+% \pgfplothandlerjumpmarkmid
+% \pgfplotxyfile{mytable}
+\def\pgfplothandlerjumpmarkmid{%
+  \def\pgf@plotstreamstart{%
+    \global\let\pgf@plotstreampoint=\pgf@plot@jump@mark@mid@handler%
+    \global\let\pgf@plotstreamspecial=\pgfutil@gobble%
+    \global\let\pgf@plotstreamend=\relax%
+  }%
+}
+\def\pgf@plot@jump@mark@mid@handler#1{%
+  \pgf@process{#1}%
+  \xdef\pgf@plot@const@line@handler@last{\global\pgf@x=\the\pgf@x\space\global\pgf@y=\the\pgf@y\space}%
+  \pgf@plot@first@action{}%
+  \global\let\pgf@plotstreampoint=\pgf@plot@jump@mark@mid@handler@@%
+}
+\def\pgf@plot@jump@mark@mid@handler@@#1{%
+  \pgf@process{#1}%
+  \pgf@xa=\pgf@x
+  \pgf@ya=\pgf@y
+  \pgf@plot@const@line@handler@last
+  \pgf@xc=.5\pgf@xa
+  \advance\pgf@xc by.5\pgf@x
+  \pgfpathlineto{\pgfqpoint{\pgf@xc}{\pgf@y}}%
+  \pgfpathmoveto{\pgfqpoint{\pgf@xc}{\pgf@ya}}%
+  \pgfpathlineto{\pgfqpoint{\pgf@xa}{\pgf@ya}}%
+  \xdef\pgf@plot@const@line@handler@last{\global\pgf@x=\the\pgf@x\space\global\pgf@y=\the\pgf@y\space}%
+}
 
 
 % This handler converts each point in a stream into a line from the

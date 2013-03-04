@@ -286,7 +286,30 @@
     \expandafter\pgfkeys@normal%
   \fi%
 }
-\long\def\pgfkeys@normal#1,{%
+\newif\ifpgfkeys@syntax@handlers
+\def\pgfkeys@normal{%
+  \ifpgfkeys@syntax@handlers%
+    \expandafter\pgfkeys@syntax@handlers%
+  \else%
+    \expandafter\pgfkeys@@normal%
+  \fi%
+}
+\def\pgfkeys@syntax@handlers{\pgfutil@ifnextchar\relax\pgfkeys@syntax@@handlers\pgfkeys@syntax@@handlers}%get rid of spaces
+\def\pgfkeys@syntax@@handlers{\futurelet\pgfkeys@first@char\pgfkeys@syntax@handlers@test}
+\def\pgfkeys@syntax@handlers@test{%
+  \pgfkeysgetvalue{/handlers/first char syntax/\meaning\pgfkeys@first@char}\pgfkeys@the@handler%
+  \ifx\pgfkeys@the@handler\relax%
+    \expandafter\pgfkeys@@normal%
+  \else%
+    \expandafter\pgfkeys@use@handler%
+  \fi%
+}
+\long\def\pgfkeys@use@handler#1,{%
+  \pgfkeys@the@handler{#1}%
+  \pgfkeys@parse%
+}
+
+\long\def\pgfkeys@@normal#1,{%
   \pgfkeys@unpack#1=\pgfkeysnovalue=\pgfkeys@stop%
   \pgfkeys@parse%
 }
@@ -423,8 +446,7 @@
     #1% ok, always true if the USER explicitly provided the full key path.
   \fi
 }%
-\def\pgfkeysaddhandlyonlyexistingexception#1{\expandafter\def\csname pgfk@excpt@#1\endcsname{1}}%
-
+\def\pgfkeysaddhandleonlyexistingexception#1{\expandafter\def\csname pgfk@excpt@#1\endcsname{1}}%
 
 \def\pgfkeys@unknown{%
   \pgfkeysifdefined{\pgfkeyscurrentpath/.unknown/.@cmd}%
@@ -670,8 +692,6 @@
   \or
 	  \pgfkeyssetvalue{#1/.@args}{##1##2##3##4##5##6}%
   \or
-	  \pgfkeyssetvalue{#1/.@args}{##1##2##3##4##5##6}%
-  \or
 	  \pgfkeyssetvalue{#1/.@args}{##1##2##3##4##5##6##7}%
   \or
 	  \pgfkeyssetvalue{#1/.@args}{##1##2##3##4##5##6##7##8}%
@@ -829,12 +849,22 @@
 \def\pgf@keys@do@list@item#1#2{\pgfkeysalso{#1={#2}}\pgf@keys@do@list{#1}}
 
 
+% Forwarding
+
+\pgfkeys{/handlers/.forward to/.code=%
+  \pgfkeysifdefined{\pgfkeyscurrentpath/.@cmd}{}{\pgfkeysdef{\pgfkeyscurrentpath}{}}
+  \pgfkeys{\pgfkeyscurrentpath/.add code={}{\pgfkeys{#1={##1}}}}
+}
+
 
 % Inspection handlers
 
 \pgfkeys{/handlers/.show value/.code=\pgfkeysgetvalue{\pgfkeyscurrentpath}{\pgfkeysshower}\show\pgfkeysshower} % inspect the value 
 \pgfkeys{/handlers/.show code/.code=\pgfkeysgetvalue{\pgfkeyscurrentpath/.@cmd}{\pgfkeysshower}\show\pgfkeysshower} % inspect the body of the command
 
+
+% First char syntax handlers
+\pgfkeys{/handlers/first char syntax/.is if=pgfkeys@syntax@handlers}
 
 % Path handling
 
@@ -905,7 +935,7 @@
 \pgfkeys{/handlers/.expand twice/.code=\expandafter\expandafter\expandafter\pgfkeys@exp@call\expandafter\expandafter\expandafter{#1}}
 \pgfkeys{/handlers/.expanded/.code=\edef\pgfkeys@temp{#1}\expandafter\pgfkeys@exp@call\expandafter{\pgfkeys@temp}}
 
-\def\pgfkeys@exp@call#1{\pgfkeysalso{\pgfkeyscurrentpath={#1}}}
+\long\def\pgfkeys@exp@call#1{\pgfkeysalso{\pgfkeyscurrentpath={#1}}}
 
 % Try to set a key and do nothing if not define
 
@@ -998,13 +1028,13 @@
 		\let\pgfkeys@case@three=\pgfkeys@case@three@handle@restricted
 		\let\pgfkeys@ifexecutehandler=\pgfkeys@ifexecutehandler@handlefullorexisting
 	},
-	/handler config/only existing/add exception/.code={\pgfkeysaddhandlyonlyexistingexception{#1}},
+	/handler config/only existing/add exception/.code={\pgfkeysaddhandleonlyexistingexception{#1}},
 }%
-\pgfkeysaddhandlyonlyexistingexception{.cd}%
-\pgfkeysaddhandlyonlyexistingexception{.try}%
-\pgfkeysaddhandlyonlyexistingexception{.retry}%
-\pgfkeysaddhandlyonlyexistingexception{.lastretry}%
-\pgfkeysaddhandlyonlyexistingexception{.unknown}%
+\pgfkeysaddhandleonlyexistingexception{.cd}%
+\pgfkeysaddhandleonlyexistingexception{.try}%
+\pgfkeysaddhandleonlyexistingexception{.retry}%
+\pgfkeysaddhandleonlyexistingexception{.lastretry}%
+\pgfkeysaddhandleonlyexistingexception{.unknown}%
 
 
 \input pgfkeysfiltered.code.tex

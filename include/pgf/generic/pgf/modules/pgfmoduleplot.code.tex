@@ -7,7 +7,7 @@
 %
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
-\ProvidesFileRCS $Header: /cvsroot/pgf/pgf/generic/pgf/modules/pgfmoduleplot.code.tex,v 1.8 2010/10/22 17:34:17 ludewich Exp $
+\ProvidesFileRCS $Header: /cvsroot-fuse/pgf/pgf/generic/pgf/modules/pgfmoduleplot.code.tex,v 1.10 2011/10/22 09:56:46 cjorssen Exp $
 
 
 % PGF's plotting interface works as follows:
@@ -314,6 +314,9 @@
 \let\pgf@plotwrite=\w@pgf@writea
 \newif\ifpgf@resample@plot
 
+\pgfkeys{%
+  /pgf/plot/gnuplot call/.initial={gnuplot}}
+
 \def\pgfplotgnuplot{\pgfutil@ifnextchar[{\pgf@plotgnuplot}{\pgf@plotgnuplot[\jobname]}}%}
 \def\pgf@plotgnuplot[#1]#2{%
   \pgf@resample@plottrue%
@@ -344,7 +347,8 @@
     \immediate\pgfutil@write\pgf@plotwrite{\pgf@gnuplot@head}%
     \immediate\pgfutil@write\pgf@plotwrite{#2}%
     \immediate\closeout\pgf@plotwrite%
-    \immediate\pgfutil@write18{gnuplot \pgf@plotgnuplotfile}%
+    \immediate\pgfutil@write18{%
+      \pgfkeysvalueof{/pgf/plot/gnuplot call} \pgf@plotgnuplotfile}%
   \fi%
   % temporarily redefine \pgf@parsexyline
   \let\pgf@savedparsexyline=\pgf@parsexyline%

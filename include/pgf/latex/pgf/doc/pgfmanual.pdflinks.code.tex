@@ -123,6 +123,12 @@
 	/pdflinks/internal link prefix/.initial=pgf,
 }
 
+\begingroup
+  \catcode`\_=12
+  \gdef\pgfmanualpdf@underscore{_}%
+  \catcode`\ =13\relax\gdef\pgfmanualpdf@install@active@space{\def {\space}}%
+\endgroup
+
 \gdef\pgfmanualpdf@installreplacements{%
 	\def\marg##1{{##1}}%
 	\def\oarg##1{[##1]}%
@@ -132,10 +138,15 @@
 	\def\\{\textbackslash}%
 	\def\space{:}%
 	\edef\ {\space}%
+	\edef\SPACE{\` \relax}%
+	\ifnum\the\catcode`\ =13 %
+		\pgfmanualpdf@install@active@space
+	\fi
 	\edef\#{}%
 	\def\printanat{@}%
 	\def\protect{}%
 	\def\textasciicircum{o}%
+        \def\_{\pgfmanualpdf@underscore}%
 	\expandafter\edef\pgfmanual@verb@activebar{\pgfmanual@verb@bar}%
 }%
 

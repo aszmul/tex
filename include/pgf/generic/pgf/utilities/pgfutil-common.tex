@@ -29,15 +29,32 @@
 
 % Simple stuff
 
-\long\def\pgfutil@ifundefined#1{%
+% \pgfutil@ifundefined{<macro name with backslash>}
+%  {<is undefined code>}{<is defined code>}
+%
+% This will let #1 to \relax if it undefined.
+%
+% This macro is expandable.
+\def\pgfutil@ifundefined#1{%
   \expandafter\ifx\csname#1\endcsname\relax
     \expandafter\pgfutil@firstoftwo
   \else
     \expandafter\pgfutil@secondoftwo
   \fi}
-\def\pgfutil@firstofone#1{#1}
-\def\pgfutil@firstoftwo#1#2{#1}
-\def\pgfutil@secondoftwo#1#2{#2}
+
+% A variant of \pgfutil@ifundefined which will NOT let #1 to \relax it
+% is undefined. However, this macro is not expandable.
+\def\pgfutil@IfUndefined#1{%
+  \begingroup\expandafter\expandafter\expandafter\endgroup
+  \expandafter\ifx\csname#1\endcsname\relax
+    \expandafter\pgfutil@firstoftwo
+  \else
+    \expandafter\pgfutil@secondoftwo
+  \fi
+}
+\long\def\pgfutil@firstofone#1{#1}
+\long\def\pgfutil@firstoftwo#1#2{#1}
+\long\def\pgfutil@secondoftwo#1#2{#2}
 \def\pgfutil@empty{}
 \def\pgfutil@gobble@until@relax#1\relax{}
 \def\pgfutil@gobble#1{}
@@ -111,12 +128,13 @@
        \expandafter\pgfutil@fornoop \else
       #4\relax\expandafter\pgfutil@iforloop\fi#2\@@#3{#4}}
 \def\pgfutil@tfor#1:={\pgfutil@tf@r#1 }
-\long\def\pgfutil@tf@r#1#2\do#3{\def\pgfutil@fortmp{#2}\ifx\pgfutil@fortmp\space\else
+\long\def\pgfutil@tf@r#1#2\do#3{\def\pgfutil@fortmp{#2}\ifx\pgfutil@fortmp\pgfutil@space\else
     \pgfutil@tforloop#2\pgfutil@nil\pgfutil@nil\@@#1{#3}\fi}
 \long\def\pgfutil@tforloop#1#2\@@#3#4{\def#3{#1}\ifx #3\pgfutil@nnil
        \expandafter\pgfutil@fornoop \else
       #4\relax\expandafter\pgfutil@tforloop\fi#2\@@#3{#4}}
 
+\def\pgfutil@space{ }
 
 % pgfutil@IfFileExists
 
@@ -170,6 +188,12 @@
 \let\pgfutil@insertatbegincurrentpage=\relax
 
 
+% Ragged left and ragged right
+
+\def\pgfutil@raggedright{\rightskip\z@ plus2em \spaceskip.3333em \xspaceskip.5em\relax}
+\def\pgfutil@raggedleft{\leftskip\z@ plus2em \rightskip\z@ \spaceskip.3333em \xspaceskip.5em\relax}
+
+
 % Library files inclusion
 
 
@@ -196,20 +220,25 @@
 \def\use@@pgflibrary#1{%
   \edef\pgf@list{#1}%
   \pgfutil@for\pgf@temp:=\pgf@list\do{%
-	\expandafter\pgfkeys@spdef\expandafter\pgf@temp\expandafter{\pgf@temp}%
-	\ifx\pgf@temp\pgfutil@empty
-	\else
-		\expandafter\ifx\csname pgf@library@\pgf@temp @loaded\endcsname\relax%
-		  \expandafter\let\csname pgf@library@\pgf@temp @loaded\endcsname=\pgfutil@empty%
-		  \expandafter\edef\csname pgf@library@#1@atcode\endcsname{\the\catcode`\@}
-		  \expandafter\edef\csname pgf@library@#1@barcode\endcsname{\the\catcode`\|}
-		  \catcode`\@=11
-		  \catcode`\|=12
-		  \input pgflibrary\pgf@temp.code.tex
-		  \catcode`\@=\csname pgf@library@#1@atcode\endcsname
-		  \catcode`\|=\csname pgf@library@#1@barcode\endcsname
-		\fi%
-	\fi
+    \expandafter\pgfkeys@spdef\expandafter\pgf@temp\expandafter{\pgf@temp}%
+    \ifx\pgf@temp\pgfutil@empty
+    \else
+      \expandafter\ifx\csname pgf@library@\pgf@temp @loaded\endcsname\relax%
+      \expandafter\let\csname pgf@library@\pgf@temp @loaded\endcsname=\pgfutil@empty%
+      \expandafter\edef\csname pgf@library@#1@atcode\endcsname{\the\catcode`\@}
+      \expandafter\edef\csname pgf@library@#1@barcode\endcsname{\the\catcode`\|}
+      \catcode`\@=11
+      \catcode`\|=12
+      \pgfutil@InputIfFileExists{pgflibrary\pgf@temp.code.tex}{}{%
+          \PackageError{pgf}{I did not find the pgf library
+            '\pgf@temp'. I looked for the file named
+            pgflibrary\pgf@temp.code.tex, but could not find it in in
+            the current texmf trees.}{} 
+        }%
+      \catcode`\@=\csname pgf@library@#1@atcode\endcsname
+      \catcode`\|=\csname pgf@library@#1@barcode\endcsname
+      \fi%
+    \fi
   }%
 }
 
@@ -460,5 +489,30 @@
 % tabularx).
 \let\pgfutil@write=\write
 \let\pgfutil@read=\read
+
+% luatex stuff
+% We assume luatex version > 0.39:
+%   - \directlua <general text> will work
+%   - \directlua is the only luatex primitive that we can assume
+%     accessible without being prefixed by the format via
+%     tex.enableprimitives.
+% Ideas taken from the ifluatex package (Heiko Oberdiek)
+\let\pgfutil@ifluatex\iffalse
+\begingroup\expandafter\expandafter\expandafter\endgroup
+\expandafter\ifx\csname directlua\endcsname\relax
+\else
+  \expandafter\let\csname pgfutil@ifluatex\expandafter\endcsname
+    \csname iftrue\endcsname
+\fi
+
+\pgfutil@ifluatex
+  \let\pgfutil@directlua\directlua
+  \pgfutil@directlua{%
+    tex.enableprimitives('pgfutil@',{'luaescapestring'})}
+\else
+  \def\pgfutil@directlua#1{}
+  \def\pgfutil@luaescapestring#1{}
+\fi
+% End of luatex stuff
 
 \endinput
