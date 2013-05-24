@@ -2,6 +2,17 @@
 \typeout{funkey -- some helpful macros by Jan Funke}
 \NeedsTeXFormat{LaTeX2e}
 
+\newif\if@funkeytheorems\@funkeytheoremstrue
+\DeclareOption{notheorems}{
+  \@funkeytheoremsfalse
+}
+
+\ProcessOptions\relax
+
+\if@funkeytheorems
+\input{funkey/theorems}
+\fi
+
 \input{funkey/math}
 \input{funkey/notation}
 \input{funkey/commands}

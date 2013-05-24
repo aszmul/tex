@@ -1,0 +1,27 @@
+% theorem environments
+
+\usepackage{amsmath}
+\usepackage{framed}
+\usepackage[framed,thmmarks,amsmath]{ntheorem}
+
+% general theorem style
+\theoremstyle{plain}
+\theorembodyfont{}
+\def\theoremframecommand{\fcolorbox{black}{gray!20!white}}
+
+\newshadedtheorem{theorem}{Theorem}[section]
+
+\newshadedtheorem{lemma}[theorem]{Lemma}
+
+\newshadedtheorem{proposition}[theorem]{Proposition}
+
+\newshadedtheorem{corollary}[theorem]{Corollary}
+
+\newshadedtheorem{definition}{Definition}[section]
+
+{
+\theoremstyle{nonumberplain}
+\theoremsymbol{\rule{1ex}{1ex}}
+\theoremseparator{:}
+\newtheorem{proof}{Proof}[section]
+}
