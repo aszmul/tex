@@ -9,7 +9,6 @@ PDFVIEWER?=evince
 
 # sketch -- converts 3d scenes to tikz images
 SKETCH_BIN=sketch
-PDFCROP_BIN=pdfcrop
 
 # the target pdf file to create
 PDFFILE=$(TEXFILE:.tex=.pdf)
@@ -127,8 +126,7 @@ pdfexport: compile
 	  pdflatex \
 	    --jobname $(subst .pdf,,$@) \
 	    --shell-escape \
-	    '\def\enabletikztension{} \input{$(TEXFILE:.tex=)}' && \
-	    env -i $(PDFCROP_BIN) $@ $@ \
+	    '\def\enabletikztension{} \input{$(TEXFILE:.tex=)}' \
 	)
 
 # rule to create tikz from sketch
