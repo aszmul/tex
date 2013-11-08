@@ -71,10 +71,16 @@
   %(defined #1)
 }
 
+% a key that defines a macro with the desired scaling parameter
+\pgfkeys{/tikztension/scale/.code=%
+  \def\tikztension@scale{#1}%
+}
+
 % introduce a new family of keys
 \pgfkeys{
   /tikztension/.is family,
-  /tikztension/define/.belongs to family=/tikztension}
+  /tikztension/define/.belongs to family=/tikztension,
+  /tikztension/scale/.belongs to family=/tikztension}
 \pgfkeys{/pgf/key filters/active families/.install key filter}
 
 % #1 is the base name of the tikz file
@@ -112,10 +118,17 @@
   \expandafter\beginpgfgraphicnamed{\graphicname}%
     \IfFileExists{#2.tikz.tex}%
     {%
-      \begin{tikzpicture}%
-        \pgfkeysalsofrom{\remainingoptions}%
-        \node[transform shape] {\input{#2.tikz.tex}};%
-      \end{tikzpicture}%
+      \ifdefined\tikztension@scale%
+        \begin{tikzpicture}%
+          %\pgfkeysalsofrom{\remainingoptions}%
+          \node[scale=\tikztension@scale] {\input{#2.tikz.tex}};%
+        \end{tikzpicture}%
+      \else%
+        \begin{tikzpicture}%
+          \pgfkeysalsofrom{\remainingoptions}%
+          \node {\input{#2.tikz.tex}};%
+        \end{tikzpicture}%
+      \fi%
     }%
     {image file does not exist (yet)}%
   \endpgfgraphicnamed%
