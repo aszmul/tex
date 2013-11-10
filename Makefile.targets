@@ -83,7 +83,7 @@ compile: images $(TEXFILE)
 	mv $(TMPDIR)/everything.pdf $(TEXFILE:.tex=.pdf)
 
 view: compile
-	@ bash -c "$(PDFVIEWER) $(PDFFILE) 1>&- 2>&-" &
+	@ pgrep -l -f "$(PDFVIEWER) $(PDFFILE)" | grep -v "/bin/sh" >/dev/null || bash -c "$(PDFVIEWER) $(PDFFILE) 1>&- 2>&-" &
 
 # create a version that includes all figures as eps files and does not need tikz anymore
 psexport: compile epsimages
