@@ -120,7 +120,7 @@
     {%
       \ifdefined\tikztension@scale%
         \begin{tikzpicture}%
-          %\pgfkeysalsofrom{\remainingoptions}%
+          \pgfkeysalsofrom{\remainingoptions}%
           \node[scale=\tikztension@scale] {\input{#2.tikz.tex}};%
         \end{tikzpicture}%
       \else%
