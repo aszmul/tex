@@ -34,21 +34,21 @@ TEXINPUTS=$(BUILDSYSTEMDIR)/include//
 
 prepare-tmpdir=\
   mkdir -p $(TMPDIR); \
-  rsync -ru $(BUILDSYSTEMDIR)/* $(TMPDIR); \
-  rsync -ru $(COMMONDIR)/* $(TMPDIR); \
-  rsync -ru * $(TMPDIR)
+  rsync -ruL $(BUILDSYSTEMDIR)/* $(TMPDIR); \
+  rsync -ruL $(COMMONDIR)/* $(TMPDIR); \
+  rsync -ruL * $(TMPDIR)
 
 prepare-psexpdir=\
   mkdir -p $(EXPDIR); \
-  rsync -ru $(BUILDSYSTEMDIR)/* $(EXPDIR); \
-  rsync -ru $(COMMONDIR)/* $(EXPDIR); \
-  rsync -ru * $(EXPDIR)
+  rsync -ruL $(BUILDSYSTEMDIR)/* $(EXPDIR); \
+  rsync -ruL $(COMMONDIR)/* $(EXPDIR); \
+  rsync -ruL * $(EXPDIR)
 
 prepare-pdfexpdir=\
   mkdir -p $(EXPDIR); \
   rsync -ru $(TMPDIR)/* $(EXPDIR); \
   mv $(EXPDIR)/include/* $(EXPDIR); \
-  rsync -ru * $(EXPDIR)
+  rsync -ruL * $(EXPDIR)
 
 default: view
 
