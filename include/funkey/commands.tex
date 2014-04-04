@@ -8,3 +8,6 @@
 
 % evaluate a mathematical expression #2 and assign the result to macro #1
 \def\mathlet#1#2{\pgfmathparse{#2}\let#1\pgfmathresult}
+
+% mark text as draft
+\newenvironment{draft}{\color{red}}{}
