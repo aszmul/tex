@@ -65,6 +65,7 @@ compile: images $(TEXFILE)
 	    --jobname everything \
 	    --shell-escape \
 	    '\def\enabletikztension{} \input{$(TEXFILE:.tex=)}' && \
+	  mv everything.pdf success.pdf && \
 	  (bibtex everything.aux || true) && \
 	  mv temp$(TIKZDEPFILE) $(TIKZDEPFILE) && \
 	  echo -n "images: " >> $(TIKZDEPFILE) && \
@@ -77,8 +78,8 @@ compile: images $(TEXFILE)
 	    do echo -n " $$epsfile" >> $(TIKZDEPFILE); \
 	  done && \
 	  echo "" >> $(TIKZDEPFILE) \
-	)
-	mv $(TMPDIR)/everything.pdf $(TEXFILE:.tex=.pdf)
+	) && \
+	mv $(TMPDIR)/success.pdf $(TEXFILE:.tex=.pdf)
 
 view: compile
 	@ pgrep -l -f "$(PDFVIEWER) $(PDFFILE)" | grep -v "/bin/sh" >/dev/null || bash -c "$(PDFVIEWER) $(PDFFILE) 1>&- 2>&-" &
