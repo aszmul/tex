@@ -12,3 +12,20 @@
 
 % mark text as draft
 \newenvironment{draft}{\color{red}}{}
+
+% include a part of an image
+\def\includetrimmed#1#2#3#4#5{%
+  \includegraphics[%
+    width=\samplewidth,%
+    height=\sampleheight,%
+    trim=#1px #2px #3px #4px,%
+    clip]%
+    {#5}%
+}
+\def\includesubimage#1#2#3#4#5{%
+  \mathlet\l{#1}%
+  \mathlet\t{#2}%
+  \mathlet\r{\totalwidth-#3-#1}%
+  \mathlet\b{\totalheight-#4-#2}%
+  \includetrimmed{\l}{\b}{\r}{\t}{#5}%
+}
