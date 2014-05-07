@@ -79,7 +79,9 @@ compile: images $(TEXFILE)
 	  done && \
 	  echo "" >> $(TIKZDEPFILE) \
 	) && \
-	mv $(TMPDIR)/success.pdf $(TEXFILE:.tex=.pdf)
+	mv $(TMPDIR)/success.pdf $(TEXFILE:.tex=.pdf) \
+	|| \
+	rm $(TMPDIR)/$(TIKZDEPFILE)
 
 view: compile
 	@ pgrep -l -f "$(PDFVIEWER) $(PDFFILE)" | grep -v "/bin/sh" >/dev/null || bash -c "$(PDFVIEWER) $(PDFFILE) 1>&- 2>&-" &
