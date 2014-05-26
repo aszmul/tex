@@ -68,7 +68,6 @@
 \pgfkeys{/tikztension/define/.code=%
   \def\tikztension@defined{#1}%
   \expandafter\def\csname #1\endcsname{}%
-  %(defined #1)
 }
 
 % a key that defines a macro with the desired scaling parameter
@@ -99,8 +98,8 @@
   % collect all filtered options in /remainingoptions
   \pgfkeys{/pgf/key filter handlers/%
            append filtered to/%
-           .install key filter handler=
-           \remainingoptions}
+           .install key filter handler=%
+           \remainingoptions}%
   % The following is a bit tricky:
   % First, /tikztension is made active, such that only options from this family 
   % are getting processed. Then we expand the search path to /tikz, such that we 
@@ -120,7 +119,7 @@
     {%
       \ifdefined\tikztension@scale%
         \begin{tikzpicture}%
-          %\pgfkeysalsofrom{\remainingoptions}%
+          \pgfkeysalsofrom{\remainingoptions}%
           \node[scale=\tikztension@scale] {\input{#2.tikz.tex}};%
         \end{tikzpicture}%
       \else%
@@ -133,7 +132,7 @@
     {image file does not exist (yet)}%
   \endpgfgraphicnamed%
   % unset tikztension option
-  \expandafter\let\csname\tikztension@defined\endcsname=\@undefined
+  \expandafter\let\csname\tikztension@defined\endcsname=\@undefined%
   % change back to original catcode of @
-  \catcode`\@=\csname tikztension@atcode\endcsname
-}%
+  \catcode`\@=\csname tikztension@atcode\endcsname%
+}
