@@ -1,3 +1,5 @@
+SHELL=bash
+
 # the build system directory is the one containing this Makefile
 BUILDSYSTEMDIR:=$(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 
@@ -20,8 +22,8 @@ TMPDIR=.tmp
 EXPDIR=.export
 
 # wildcards for files that are not supposed to be exported
-NOPSEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.pdf *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README ./$(TEXFILE:.tex=.pdf)
-NOPDFEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.eps *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README ./$(TEXFILE:.tex=.pdf)
+NOPSEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.pdf *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README* ./build ./$(TMPDIR) $(EXPORT_EXCLUDE) ./$(TEXFILE:.tex=.pdf)
+NOPDFEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.eps *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README* ./build ./$(TMPDIR) $(EXPORT_EXCLUDE) ./$(TEXFILE:.tex=.pdf)
 
 # tex-generated list of tikz images in the target pdf
 TIKZDEPFILE=tikz.dep
@@ -110,13 +112,13 @@ pdfexport: compile
 	# overwrite tikz-includes
 	cp -r $(BUILDSYSTEMDIR)/export/* $(EXPDIR)
 	# rename bibtex file
-	mv $(EXPDIR)/everything.bbl $(EXPDIR)/$(subst .tex,.bbl,$(TEXFILE))
+	mv $(EXPDIR)/everything.bbl $(EXPDIR)/$(subst .tex,.bbl,$(TEXFILE)) || true
 	# rename theorem file
-	mv $(EXPDIR)/everything.thm $(EXPDIR)/$(subst .tex,.thm,$(TEXFILE))
+	mv $(EXPDIR)/everything.thm $(EXPDIR)/$(subst .tex,.thm,$(TEXFILE)) || true
 	# remove all files that are not supposed to be exported
 	( \
 	  cd $(EXPDIR) && \
-	  find \( -type l -o -type f -a \( $(foreach PATTERN, $(NOPDFEXPORT), -wholename '$(PATTERN)' -o) -false \) \) -exec rm '{}' \; ; \
+	  find \( $(foreach PATTERN, $(NOPDFEXPORT), -wholename '$(PATTERN)' -o) -false \) -exec rm -r '{}' \; ; \
 	  find -depth -empty -type d -exec rm -r '{}' \; \
 	)
 
