@@ -21,7 +21,11 @@
 
 {
 \theoremstyle{nonumberplain}
-\theoremsymbol{\rule{1ex}{1ex}}
+\ifdefined\alternativetheoremsymbol
+  \theoremsymbol{\alternativetheoremsymbol}
+\else
+  \theoremsymbol{\rule{1ex}{1ex}}
+\fi
 \theoremseparator{:}
 \newtheorem{proof}{Proof}[section]
 }
