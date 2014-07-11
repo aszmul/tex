@@ -125,7 +125,7 @@ pdfexport: compile
 # rule to create pdf files from tikz images of the target pdf
 %.pdf:
 	$(call prepare-tmpdir)
-	( \
+	-( \
 	  cd $(TMPDIR) && \
 	  TEXINPUTS=.:..:$(BUILDSYSTEMDIR):$(COMMONDIR):$(TEXINPUTS): \
 	  pdflatex \
