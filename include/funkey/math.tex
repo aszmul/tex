@@ -23,3 +23,38 @@
 
 % function names
 \newcommand\gauss{\mathcal{N}}
+
+\def\beginilp{%
+  \makeatletter
+  \global\let\ilp@firstconstraint 1
+  \makeatother
+  \begin{IEEEeqnarray}{rrClr}
+}
+\def\objective#1#2{%
+  #1
+  &
+  #2
+  &
+  &
+  &
+}
+\def\constraint#1#2#3#4{%
+  \\
+  \makeatletter
+  \if\ilp@firstconstraint 1 \text{s.t.} \fi
+  \global\let\ilp@firstconstraint 0
+  \makeatother
+  &
+  #1
+  &
+  #2
+  &
+  #3
+  &
+  \;\;\;\;
+  #4
+  \nonumber
+}
+\def\endilp{%
+  \end{IEEEeqnarray}
+}
