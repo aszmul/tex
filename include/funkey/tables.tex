@@ -1,0 +1,114 @@
+% this file provides useful extensions to pgfplotstable:
+%
+% styles (found on stackexchange by user Jake):
+%
+%   highlight col max
+%   highlight col min
+%   highlight row max
+%   highlight row min
+% 
+%   Usage:
+%
+%     \pgfplotstabletypeset[
+%       highlight row max={<data>}{<row number>}
+%     }{<data>}
+%
+%     or
+%
+%     \pgfplotstabletypeset[
+%       highlight col max={<data>}{<column name>}
+%     }{<data>}
+
+\usepackage{pgfplotstable}
+\usepackage{booktabs}
+\usepackage{colortbl}
+
+\newcommand{\findmax}[3]{
+    \pgfplotstablevertcat{\datatable}{#1}
+    \pgfplotstablecreatecol[
+    create col/expr={%
+    \pgfplotstablerow
+    }]{rownumber}\datatable
+    \pgfplotstablesort[sort key={#2},sort cmp={float >}]{\sorted}{\datatable}%
+    \pgfplotstablegetelem{0}{rownumber}\of{\sorted}%
+    \pgfmathtruncatemacro#3{\pgfplotsretval}
+    \pgfplotstableclear{\datatable}
+}
+
+\newcommand{\findmin}[3]{
+    \pgfplotstablevertcat{\datatable}{#1}
+    \pgfplotstablecreatecol[
+      create col/expr={%
+    \pgfplotstablerow
+    }]{rownumber}\datatable
+    \pgfplotstablesort[sort key={#2},sort cmp={float <}]{\sorted}{\datatable}%
+    \pgfplotstablegetelem{0}{rownumber}\of{\sorted}%
+    \pgfmathtruncatemacro#3{\pgfplotsretval}
+    \pgfplotstableclear{\datatable}
+}
+
+\pgfplotstableset{
+  highlight content/.style={
+    postproc cell content/.append style={
+      @cell content/.add={$\bf}{$},
+    }
+  },
+  highlight min content/.style={
+    highlight content
+  },
+  highlight max content/.style={
+    highlight content
+  },
+}
+
+\pgfplotstableset{
+    highlight col max/.code 2 args={
+        \findmax{#1}{#2}{\maxval}
+        \edef\setstyles{\noexpand\pgfplotstableset{
+                every row \maxval\noexpand\space column #2/.style={
+                    highlight max content
+                }
+            }
+        }\setstyles
+    },
+    highlight col min/.code 2 args={
+        \findmin{#1}{#2}{\minval}
+        \edef\setstyles{\noexpand\pgfplotstableset{
+                every row \minval\noexpand\space column #2/.style={
+                    highlight min content
+                }
+            }
+        }\setstyles
+    },
+    highlight row max/.code 2 args={
+        \pgfmathtruncatemacro\rowindex{#2-1}
+        \pgfplotstabletranspose{\transposed}{#1}
+        \findmax{\transposed}{\rowindex}{\maxval}
+        \edef\setstyles{\noexpand\pgfplotstableset{
+                every row \rowindex\space column \maxval\noexpand/.style={
+                    highlight max content
+                }
+            }
+        }\setstyles
+    },
+    highlight row min/.code 2 args={
+        \pgfmathtruncatemacro\rowindex{#2-1}
+        \pgfplotstabletranspose{\transposed}{#1}
+        \findmin{\transposed}{\rowindex}{\maxval}
+        \edef\setstyles{\noexpand\pgfplotstableset{
+                every row \rowindex\space column \maxval\noexpand/.style={
+                    highlight min content
+                }
+            }
+        }\setstyles
+    },
+}
+
+\makeatletter
+\long\def\pgfplotstabletypeset@opt@collectarg[#1]#2{%
+
+    \pgfplotstable@isloadedtable{#2}%
+        {\pgfplotstabletypeset@opt@[#1]{#2}}%
+        {\pgfplotstabletypesetfile@opt@[#1]{#2}}%
+}
+\makeatother
