@@ -1,7 +1,10 @@
 \usepackage{xifthen}
 
+% isin version that expands its first argument
+\newcommand*{\isinxp}[2]{\expandafter\isin\expandafter{#1}{#2}}
+
 \newcommand{\mbb}[1]{{%
-\ifthenelse{\isin{#1}{abcdefghijklmnopqrstuvxyz}}%
+\ifthenelse{\isinxp{#1}{abcdefghijklmnopqrstuvxyz}}%
   {{\mathbf #1}}%
   {\boldsymbol #1}%
 }}
