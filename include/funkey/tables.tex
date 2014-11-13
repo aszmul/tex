@@ -23,29 +23,29 @@
 \usepackage{booktabs}
 \usepackage{colortbl}
 
-\newcommand{\findmax}[3]{
-    \pgfplotstablevertcat{\datatable}{#1}
-    \pgfplotstablecreatecol[
-    create col/expr={%
-    \pgfplotstablerow
-    }]{rownumber}\datatable
-    \pgfplotstablesort[sort key={#2},sort cmp={float >}]{\sorted}{\datatable}%
-    \pgfplotstablegetelem{0}{rownumber}\of{\sorted}%
-    \pgfmathtruncatemacro#3{\pgfplotsretval}
-    \pgfplotstableclear{\datatable}
-}
+\newcommand{\findmax}[3]{%
+    \pgfplotstablevertcat{\datatable}{#1}%
+    \pgfplotstablecreatecol[%
+    create col/expr={%%
+    \pgfplotstablerow%
+    }]{rownumber}\datatable%
+    \pgfplotstablesort[sort key={#2},sort cmp={float >}]{\sorted}{\datatable}%%
+    \pgfplotstablegetelem{0}{rownumber}\of{\sorted}%%
+    \pgfmathtruncatemacro#3{\pgfplotsretval}%
+    \pgfplotstableclear{\datatable}%
+}%
 
-\newcommand{\findmin}[3]{
-    \pgfplotstablevertcat{\datatable}{#1}
-    \pgfplotstablecreatecol[
+\newcommand{\findmin}[3]{%
+    \pgfplotstablevertcat{\datatable}{#1}%
+    \pgfplotstablecreatecol[%
       create col/expr={%
-    \pgfplotstablerow
-    }]{rownumber}\datatable
+    \pgfplotstablerow%
+    }]{rownumber}\datatable%
     \pgfplotstablesort[sort key={#2},sort cmp={float <}]{\sorted}{\datatable}%
-    \pgfplotstablegetelem{0}{rownumber}\of{\sorted}%
-    \pgfmathtruncatemacro#3{\pgfplotsretval}
-    \pgfplotstableclear{\datatable}
-}
+    \pgfplotstablegetelem{0}{rownumber}\of{\sorted}%%
+    \pgfmathtruncatemacro#3{\pgfplotsretval}%
+    \pgfplotstableclear{\datatable}%
+}%
 
 \pgfplotstableset{
   highlight content/.style={
@@ -104,11 +104,10 @@
     },
 }
 
-\makeatletter
+\makeatletter%
 \long\def\pgfplotstabletypeset@opt@collectarg[#1]#2{%
-
     \pgfplotstable@isloadedtable{#2}%
         {\pgfplotstabletypeset@opt@[#1]{#2}}%
         {\pgfplotstabletypesetfile@opt@[#1]{#2}}%
-}
-\makeatother
+}%
+\makeatother%
