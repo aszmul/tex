@@ -24,19 +24,23 @@
 % function names
 \newcommand\gauss{\mathcal{N}}
 
+% ILP
+%
+% Usage:
+%
+% \beginilp
+%   \objective{\
 \def\beginilp{%
   \makeatletter
   \global\let\ilp@firstconstraint 1
   \makeatother
-  \begin{IEEEeqnarray}{rrClr}
+  % {min,s.t.}[spacer]{objective,lhs}[rel][rhs][qualifier]
+  \begin{IEEEeqnarray}{r?rCl"r}
 }
 \def\objective#1#2{%
   #1
   &
-  #2
-  &
-  &
-  &
+  \IEEEeqnarraymulticol{3}{l}{#2}
 }
 \def\constraint#1#2#3#4{%
   \\
@@ -51,7 +55,6 @@
   &
   #3
   &
-  \;\;\;\;
   #4
   \nonumber
 }
