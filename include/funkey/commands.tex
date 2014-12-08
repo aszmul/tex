@@ -29,3 +29,12 @@
   \mathlet\b{\totalheight-#4-#2}%
   \includetrimmed{\l}{\b}{\r}{\t}{#5}%
 }
+
+% include files in a directory relative to current directory
+\def\currentdir{.}%
+\def\linput#1#2{%
+  \begingroup%
+  \edef\currentdir{\currentdir/#1}%
+  \input{\currentdir/#2}%
+  \endgroup%
+}%
