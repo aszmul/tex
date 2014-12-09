@@ -32,12 +32,13 @@
 %   \objective{\
 \def\beginilp{%
   \makeatletter
-  \global\let\ilp@firstconstraint 1
+  \global\let\ilp@firstconstraint 0
   \makeatother
   % {min,s.t.}[spacer]{objective,lhs}[rel][rhs][qualifier]
   \begin{IEEEeqnarray}{r?rCl"l}
 }
 \def\objective#1#2{%
+  \global\let\ilp@firstconstraint 1
   #1
   &
   \IEEEeqnarraymulticol{3}{l}{#2}
