@@ -33,18 +33,36 @@
 \def\beginilp{%
   \makeatletter
   \global\let\ilp@firstconstraint 0
+  \global\def\ilp@name{}
   \makeatother
-  % {min,s.t.}[spacer]{objective,lhs}[rel][rhs][qualifier]
-  \begin{IEEEeqnarray}{r?rCl"l}
+  % [name]{min,s.t.}[spacer]{objective,lhs}[rel][rhs][spacer][qualifier]
+  \begin{IEEEeqnarray}{lr?rCl"l}
+}
+\def\name#1{%
+  \makeatletter
+  \global\def\ilp@name{#1:\;\;\;\;}
+  \makeatother
 }
 \def\objective#1#2{%
+  \makeatletter
   \global\let\ilp@firstconstraint 1
+  \ilp@name
+  \makeatother
+  &
   #1
   &
-  \IEEEeqnarraymulticol{3}{l}{#2}
+  \IEEEeqnarraymulticol{4}{l}{#2}
+}
+\def\objectivecont#1{%
+  \\
+  &
+  &
+  \IEEEeqnarraymulticol{4}{l}{#1}
+  \nonumber
 }
 \def\constraint#1#2#3#4{%
   \\
+  &
   \makeatletter
   \if\ilp@firstconstraint 1 \text{s.t.} \fi
   \global\let\ilp@firstconstraint 0
