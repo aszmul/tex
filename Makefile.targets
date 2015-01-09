@@ -86,7 +86,11 @@ compile: images $(TEXFILE)
 	rm $(TMPDIR)/$(TIKZDEPFILE)
 
 view: compile
-	@ pgrep -l -f "$(PDFVIEWER) $(PDFFILE)" | grep -v "/bin/sh" >/dev/null || bash -c "$(PDFVIEWER) $(PDFFILE) 1>&- 2>&-" &
+	@ if pgrep -l -f "$(PDFVIEWER) $(PDFFILE)" | grep $(PDFVIEWER) >/dev/null; \
+	then echo "$(PDFVIEWER) already running"; \
+	else echo "$(PDFVIEWER) not running"; \
+	  /bin/sh -c "$(PDFVIEWER) $(PDFFILE) &" 1&>/dev/null 2&>/dev/null;\
+	fi
 
 # create a version that includes all figures as eps files and does not need tikz anymore
 psexport: compile epsimages
