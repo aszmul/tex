@@ -23,7 +23,7 @@ EXPDIR=.export
 
 # wildcards for files that are not supposed to be exported
 NOPSEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.pdf *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README* ./build ./$(TMPDIR) $(EXPORT_EXCLUDE) ./$(TEXFILE:.tex=.pdf)
-NOPDFEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.eps *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README* ./build ./$(TMPDIR) $(EXPORT_EXCLUDE) ./$(TEXFILE:.tex=.pdf)
+NOPDFEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.eps *.ps *.txt *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README* ./build ./$(TMPDIR) $(EXPORT_EXCLUDE) ./$(TEXFILE:.tex=.pdf)
 
 # tex-generated list of tikz images in the target pdf
 TIKZDEPFILE=tikz.dep
