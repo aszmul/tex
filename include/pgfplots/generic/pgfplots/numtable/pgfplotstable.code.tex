@@ -149,7 +149,7 @@
 						% this sanity checking is NOT fool proof: it
 						% fails if there are different occurances of
 						% unique in the same file
-						\pgfplotstable@error{Sorry, the row predicate /pgfplots/table/unique={#1} has been used in the wrong context: it needs to be invoked for the very first processed column, not column no \pgfplotstablecol. Please provide it as argument to \string\pgfplotstabletypeset[unique={#1}] and not inside of column-specific styles}%
+						\pgfplotsthrow{invalid argument}{Sorry, the row predicate /pgfplots/table/unique={#1} has been used in the wrong context: it needs to be invoked for the very first processed column, not column no \pgfplotstablecol. Please provide it as argument to \string\pgfplotstabletypeset[unique={#1}] and not inside of column-specific styles}\pgfeov%
 					}{}%
 				\fi
 				% acquire the assembled list here: we'll do a lot of
@@ -182,6 +182,13 @@
 	% or
 	% columns={[index]2,name2,name3,[index]5}
 	/pgfplots/table/columns/.initial=,
+	%
+	% this choice allows 
+	% \pgfplotstableset{
+	%    column name={}, % means: the column's display name is an empty string!
+	%    column name=\pgfkeysnovalue, % means: no value specified. In this case, 
+	%             the column's display name will default to column's name.
+	% }
 	/pgfplots/table/column name/.initial=\pgfkeysnovalue,
 	%
 	% this thing here allows to MODIFY 'column name'.
@@ -1123,6 +1130,19 @@
 	\pgfutil@ifnextchar[{\pgfplotstablenew@impl}{\pgfplotstablenew@impl[]}}
 
 \def\pgfplotstablenew@impl[#1]#2#3{%
+	\ifx#3\pgfutil@undefined
+	\else
+		\ifx#3\relax
+		\else
+			% oh - there *is* already such a table. The 'getcolumnbyname' method suffers from a flaw in 'ifexists' that I do not want to fix right now.
+			% To work around that flaw, I merely clear the old table here:
+			% let's hope that '#3' really *was* a table and not some other junk...
+			\pgfplotslistforeachungrouped#3\as\pgfplotstable@loc@TMPa{%
+				\expandafter\let\csname\string#3@\pgfplotstable@loc@TMPa\endcsname=\relax%
+			}%
+		\fi
+	\fi
+	%
 	\pgfplotsscanlinelengthinitzero
 	% create a temporary column with the desired number of rows:
 	\pgfutil@in@\pgfplotstablegetrowsof{#2}%
@@ -1537,9 +1557,10 @@
 }
 
 % processes the option 'assign column name'
+% FIXME : seems to be deprecated
 \def\pgfplotstabletypeset@assign@final@colname#1#2{%
 	\pgfkeysifdefined{/pgfplots/table/assign column name/.@cmd}{%
-		\pgfkeysdef{/pgfplots/table/column name}{#1}%
+		\pgfkeyssetvalue{/pgfplots/table/column name}{#1}%
 		\pgfkeysvalueof{/pgfplots/table/assign column name/.@cmd}#1\pgfeov
 		\pgfkeysgetvalue{/pgfplots/table/column name}{#2}%
 	}{}%
@@ -1872,6 +1893,8 @@
 		\global\advance\c@pgfplotstable@colindex by1\relax
 	}%
 	%
+	\pgfplotstable@disable@column@styles
+	%
 	\pgfplotslistcheckempty\pgfplotstabletypeset@final@colnames
 	\ifpgfplotslistempty
 		\let\pgfplotstable@result=\pgfutil@empty
@@ -2113,6 +2136,20 @@
 	\pgfplots@glob@TMPa% execute 'write to macro' if set.
 }%
 
+\def\pgfplotstable@disable@column@styles@error#1{%
+	\pgfplotsthrow{invalid argument}\pgfplots@loc@TMPa{Sorry, the key '#1' has been assigned while processing row options. However, it needs to be invoked while processing column options. If your options depend on specific row indices, consider using \string\pgfplotstablerow\space and \string\pgfplotstablerows}\pgfeov%
+}%
+\def\pgfplotstable@disable@column@styles@#1{%
+	\pgfkeysdef{/pgfplots/table/#1/.code}{\pgfplotstable@disable@column@styles@error{#1}}%
+	\pgfkeysdef{/pgfplots/table/#1/.append code}{\pgfplotstable@disable@column@styles@error{#1}}%
+	\pgfkeysdefargs{/pgfplots/table/#1/.add code}{##1##2}{\pgfplotstable@disable@column@styles@error{#1}}%
+	\pgfkeysdef{/pgfplots/table/#1/.append style}{\pgfplotstable@disable@column@styles@error{#1}}%
+}
+\def\pgfplotstable@disable@column@styles{%
+	\pgfplotstable@disable@column@styles@{postproc cell content}%
+	\pgfplotstable@disable@column@styles@{preproc cell content}%
+	\pgfplotstable@disable@column@styles@{assign cell content}%
+}%
 
 \newif\ifpgfplotstable@isfirstrow
 \newif\ifpgfplotstable@islastrow

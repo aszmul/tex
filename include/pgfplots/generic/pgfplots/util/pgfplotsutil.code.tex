@@ -164,6 +164,12 @@
 }%
 \def\pgfplotscommandtostring#1#2{\pgfplots@command@to@string{#1}{#2}}%
 
+\begingroup
+\catcode`\|=0
+\catcode`\\=12
+|gdef|pgfplots@backslash@as@other{\}%
+|endgroup
+
 % As \pgfplots@command@to@string, but it works for commands accepting
 % arguments. More precisely, #2 will be a string (!) of the form
 % <argument pattern>{ <body> }
@@ -240,6 +246,7 @@
 \catcode`\%=12
 \gdef\pgfplots@PERCENT@TEXT{%}
 \catcode`\^^I=12
+\gdef\pgfplots@SPACE{ }
 \gdef\pgfplots@TAB{^^I}
 \catcode`\#=12 \gdef\pgfplots@ROUTE{#}}
 
@@ -457,7 +464,8 @@
 % for two-dimensional plots and shall be optimized.
 \def\pgfplotsqpointxy@orthogonal#1#2{%
 	\global\pgf@x=#1\pgf@xx%
-	\global\pgf@y=#2\pgf@yy}
+	\global\pgf@y=#2\pgf@yy
+}
 
 
 % Takes a domain as input and generates a foreach argument which
@@ -587,7 +595,18 @@
 \def\pgfplotsforeachungrouped#1{%
 	\pgfutil@ifnextchar/{\pgfplotsforeachungrouped@{#1}}{\pgfplotsforeachungrouped@{#1}/{}}%
 }%
-\long\def\pgfplotsforeachungrouped@#1/#2in #3#4{%
+
+% accept both 
+% \pgfplotsforeachungrouped\x in{1,...,5}{a}
+% \pgfplotsforeachungrouped\x in {1,...,5}{a}
+\long\def\pgfplotsforeachungrouped@#1/#2in{%
+	\pgfutil@ifnextchar\bgroup{%
+		\pgfplotsforeachungrouped@@{#1}{#2}%
+	}{%
+		\pgfplots@error{Found unexpected characters: expected 'in '.}%
+	}%
+}
+\long\def\pgfplotsforeachungrouped@@#1#2#3#4{%
 	\def\pgfplots@foreach@loc@TMPa{#2}%
 	\ifx\pgfplots@foreach@loc@TMPa\pgfutil@empty
 		\pgfplotsforeachungrouped@isuniform{#3}%
@@ -640,10 +659,43 @@
 			{\noexpand#1}% #4 = the loop macro name
 			{\pgfplots@foreach@loc@meshwidth}% #5 =  h
 			{\the\t@pgfplots@toka}% #6 = the code to invoke
+			{0}% #7 : the loop variable
 	}%
 	\pgfplots@foreach@loc@TMPc
 }%
-\long\def\pgfplotsforeachungroupeduniform@loop@mathengine#1#2#3#4#5#6{%
+
+% This here is much more accurate and does not suffer from the
+% numerical stability issues of the other loop.
+%
+% TO DO: test it (optimize it?) and enable it for some future compat=<version>
+% switch!
+\long\def\pgfplotsforeachungroupeduniform@loop@mathengine@PRECISE@CURRENTLY@UNUSED@#1#2#3#4#5#6#7{%
+	\pgfmathparse{#2+#7*#5}% is this significantly slower than the direct calls?
+	\let#4=\pgfmathresult
+	#1{#4}{#3}% substitute this by integer arithmetics
+	\ifdim\pgfmathresult pt=0pt %
+		\def\pgfplotsforeach@loc@TMP@{\pgfutil@in@{.0\relax}}%
+		\expandafter\pgfplotsforeach@loc@TMP@\expandafter{#4\relax}%
+		\ifpgfutil@in@
+			% ah - our current loop variable has .0 as suffix.
+			% Strip it.
+			\def\pgfplotsforeach@loc@TMP@##1.0\relax{%
+				\def#4{##1}%
+			}%
+			\expandafter\pgfplotsforeach@loc@TMP@#4\relax
+		\fi
+		#6\relax
+		\def\pgfplotsforeach@loc@TMP@{#7}%
+		\pgfplotsutil@advancestringcounter\pgfplotsforeach@loc@TMP@
+		%
+		\t@pgfplots@tokc={{#1}{#2}{#3}{#4}{#5}{#6}}%
+		% loop!
+		\edef\pgfplots@loc@TMPa{\noexpand\pgfplotsforeachungroupeduniform@loop@mathengine
+			\the\t@pgfplots@tokc{\pgfplotsforeach@loc@TMP@}}%
+		\expandafter\pgfplots@loc@TMPa
+	\fi
+}%
+\long\def\pgfplotsforeachungroupeduniform@loop@mathengine#1#2#3#4#5#6#7{%
 	#1{#2}{#3}%
 	\ifdim\pgfmathresult pt=0pt
 		\pgfutil@in@{.0\relax}{#2\relax}%
@@ -659,7 +711,7 @@
 		\pgfmathadd@{#2}{#5}%
 		\t@pgfplots@toka={{#1}}%
 		\t@pgfplots@tokb=\expandafter{\pgfmathresult}%
-		\t@pgfplots@tokc={{#3}{#4}{#5}{#6}}%
+		\t@pgfplots@tokc={{#3}{#4}{#5}{#6}{--}}%
 		% loop!
 		\edef\pgfplots@loc@TMPa{\noexpand\pgfplotsforeachungroupeduniform@loop@mathengine
 			\the\t@pgfplots@toka
@@ -870,9 +922,11 @@
 % and
 %  \pgfplots@foreach@loc@TMPb := log(secondintervalpt)
 \def\pgfplotsforeachlogarithmicungrouped@readdomain#1:#2\relax{%
-	\pgfplotscoordmath{\pgfplotsforeachlogarithmicmathid}{log}{#1}%
+	\pgfplotscoordmath{default}{parse}{#1}%
+	\pgfplotscoordmath{\pgfplotsforeachlogarithmicmathid}{log}{\pgfmathresult}%
 	\let\pgfplots@foreach@loc@TMPa=\pgfmathresult
-	\pgfplotscoordmath{\pgfplotsforeachlogarithmicmathid}{log}{#2}%
+	\pgfplotscoordmath{default}{parse}{#2}%
+	\pgfplotscoordmath{\pgfplotsforeachlogarithmicmathid}{log}{\pgfmathresult}%
 	\let\pgfplots@foreach@loc@TMPb=\pgfmathresult
 }
 
@@ -1126,19 +1180,7 @@
 	\let\pgfplots@y=\pgfmathresult
 	\pgfplotscoordmath{#5}{op}{veclen}{{\pgfplots@x}{\pgfplots@y}}%
 	\let\pgfplots@r=\pgfmathresult
-	\pgfplotscoordmath{#5}{if is}{\pgfplots@r}{0}{%
-		\pgfplotscoordmath{#5}{parsenumber}{0}%
-	}{%
-		\pgfplotscoordmath{#5}{op}{divide}{{\pgfplots@x}{\pgfplots@r}}%
-		\let\pgfplots@quot=\pgfmathresult
-		\pgfplotscoordmath{#5}{op}{acos}{{\pgfplots@quot}}%
-		%
-		\pgfplotscoordmath{#5}{if is}{\pgfplots@y}{-}{%
-			\let\pgfplots@acos=\pgfmathresult
-			\pgfplotscoordmath{#5}{parsenumber}{-1}%
-			\pgfplotscoordmath{#5}{op}{multiply}{{\pgfmathresult}{\pgfplots@acos}}%
-		}{}%
-	}%
+	\pgfplotscoordmath{#5}{op}{atan2}{{\pgfplots@y}{\pgfplots@x}}%
 	\let\pgfplots@deg=\pgfmathresult
 	\xdef\pgfplots@glob@TMPa{\noexpand\def\noexpand#3{\pgfplots@deg}\noexpand\def\noexpand#4{\pgfplots@r}}%
 	\endgroup
@@ -1265,6 +1307,32 @@
 	}%
 }%
 
+% Tests if string '#2' starts with pattern '#1'. 
+%
+% If so, it executes #3 and defines \pgfplotsretval to contain the
+% suffix which is not equal to #1. Otherwise it executes #4.
+\def\pgfplotsutilifstartswith#1#2#3#4{%
+	\def\pgfplotsutilifstartswith@ ##1#1##2\pgfplots@EOI{%
+		\def\pgfplotsutil@tmp{##1}%
+		\ifx\pgfplotsutil@tmp\pgfutil@empty
+			% Ah - a hit!
+			%
+			% define \pgfplotsretval to be the suffix...
+			\def\pgfplotsutil@tmp#1####1\pgfplots@EOI{%
+				\def\pgfplotsretval{####1}%
+			}%
+			\pgfplotsutil@tmp#2\pgfplots@EOI
+			% 
+			% ... and execute the <true> code:
+			#3\relax
+		\else
+			% hm. No such prefix.
+			#4\relax
+		\fi
+	}%
+	\pgfplotsutilifstartswith@#2--#1\pgfplots@EOI
+}%
+
 % Usage:
 % \pgfplotsutilstrreplace{<token>}{<replacement>}{<string>}
 %
@@ -1298,6 +1366,21 @@
 	\def\pgfplotsifstringequal@{#1}%
 	\def\pgfplotsifstringequal@@{#2}%
 	\ifx\pgfplotsifstringequal@\pgfplotsifstringequal@@ #3\else #4\fi
+}%
+
+% Checks if the token sequence #1 (unexpanded) contains a macro and
+% invokes #2 if so and #3 if not.
+\def\pgfplotsutilifcontainsmacro#1#2#3{%
+	\def\pgfplots@loc@TMPa{#1}%
+	\pgfplots@command@to@string\pgfplots@loc@TMPa\pgfplots@loc@TMPa
+	\edef\pgfplots@loc@TMPa{\noexpand\pgfutil@in@{\pgfplots@backslash@as@other}{\pgfplots@loc@TMPa}}%
+	\pgfplots@loc@TMPa
+	\ifpgfutil@in@
+		\def\pgfplots@loc@TMPa{#2}%
+	\else
+		\def\pgfplots@loc@TMPa{#3}%
+	\fi
+	\pgfplots@loc@TMPa
 }%
 
 % this command is in pgfplotscore.code.tex:
@@ -1975,8 +2058,36 @@
 \gdef\pgfplotsHASH{#}%
 \catcode`\%=12 \gdef\pgfplotsPERCENT{%}}
 
+\def\pgfplots@alloc@catcodetable{%
+	% it is task of the TeX format to load this.
+	% context comes with it out-of-the box, and pgfplots.sty loads luatexbase.sty
+	\pgfutil@IfUndefined{newcatcodetable}{%
+		% Oh. The TeX format does not have support for
+		% \newcatcodetable and the associated pgfplots module did not
+		% load an addon-package!?
+		%
+		% We _need_ the catcodes which are active when pgfplots starts.
+		% And there is no central mechanism to allocate catcodes. I will
+		% take one for me now and hope that it will not be used (soon).
+		\def\pgfplotsglobalretval{41}%
+	}{%
+		% the macro \pgfplots@luabackend@table is never used by TeX
+		% code.
+		% I only need the value inside of the .lua files: whenever
+		% they print something, they need to use it.
+		\newcatcodetable\pgfplots@luabackend@table
+		\let\pgfplotsglobalretval=\pgfplots@luabackend@table
+	}%
+}%
 \pgfutil@IfUndefined{directlua}{}{%
-	\directlua{require(\pgfplotsDQ pgfplots.lua\pgfplotsDQ)}%
+	\directlua{tex.enableprimitives("",tex.extraprimitives())}%
+	\pgfplots@log3{Initializing with LUA version \directlua{tex.print(_VERSION)}}%
+	\directlua{require("pgfplots"); pgfplots.pgfplotsversion = "\pgfplotsversion";}%
+	%
+	\pgfplots@alloc@catcodetable
+	\c@pgf@counta=\pgfplotsglobalretval
+	\savecatcodetable\c@pgf@counta
+	\directlua{pgfplots.LOAD_TIME_CATCODETABLE = \the\c@pgf@counta}%
 }%
 
 % swaps the content of two macros
@@ -1984,6 +2095,10 @@
 	\let\pgfplotsutil@swap@=#1%
 	\let#1=#2%
 	\let#2=\pgfplotsutil@swap@
+}%
+
+\def\pgfplots@boolval#1{%
+	\pgfplots@if{#1}{true}{false}%
 }%
 
 \input pgfplotsliststructure.code.tex

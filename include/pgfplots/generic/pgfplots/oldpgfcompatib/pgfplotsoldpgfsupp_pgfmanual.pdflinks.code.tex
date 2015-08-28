@@ -13,8 +13,13 @@
 %%% This copy has been modified in the following ways:
 %%%  - nested \input commands have been updated
 %%%  
+%
+% Support for the contents of this file will NOT be done by the PGF/TikZ team. 
+% Please contact the author and/or maintainer of pgfplots (Christian Feuersaenger) if you need assistance in conjunction
+% with the deployment of this patch or partial content of PGF. Note that the author and/or maintainer of pgfplots has no obligation to fix anything:
+% This file comes without any warranty as the rest of pgfplots; there is no obligation for help.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Date of this copy: Sa 22. Sep 18:44:37 CEST 2012 %%%
+%%% Date of this copy: Sa 7. Dez 20:58:23 CET 2013 %%%
 
 
 
@@ -146,6 +151,7 @@
 \begingroup
   \catcode`\_=12
   \gdef\pgfmanualpdf@underscore{_}%
+  \catcode`\ =13\relax\gdef\pgfmanualpdf@install@active@space{\def {\space}}%
 \endgroup
 
 \gdef\pgfmanualpdf@installreplacements{%
@@ -157,6 +163,10 @@
 	\def\\{\textbackslash}%
 	\def\space{:}%
 	\edef\ {\space}%
+	\edef\SPACE{\` \relax}%
+	\ifnum\the\catcode`\ =13 %
+		\pgfmanualpdf@install@active@space
+	\fi
 	\edef\#{}%
 	\def\printanat{@}%
 	\def\protect{}%

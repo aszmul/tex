@@ -13,8 +13,13 @@
 %%% This copy has been modified in the following ways:
 %%%  - nested \input commands have been updated
 %%%  
+%
+% Support for the contents of this file will NOT be done by the PGF/TikZ team. 
+% Please contact the author and/or maintainer of pgfplots (Christian Feuersaenger) if you need assistance in conjunction
+% with the deployment of this patch or partial content of PGF. Note that the author and/or maintainer of pgfplots has no obligation to fix anything:
+% This file comes without any warranty as the rest of pgfplots; there is no obligation for help.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Date of this copy: Sa 22. Sep 18:44:37 CEST 2012 %%%
+%%% Date of this copy: Mi 9. Jul 15:41:39 CEST 2014 %%%
 
 
 
@@ -27,7 +32,7 @@
 %
 % See the file doc/generic/pgf/licenses/LICENSE for more details.
 
-\ProvidesFileRCS $Header: /cvsroot/pgf/pgf/generic/pgf/basiclayer/pgfcoreexternal.code.tex,v 1.19 2012/06/18 20:39:58 ludewich Exp $
+\ProvidesFileRCS $Header: /cvsroot/pgf/pgf/generic/pgf/basiclayer/pgfcoreexternal.code.tex,v 1.20 2013/07/15 12:05:31 tantau Exp $
 
 
 
@@ -200,7 +205,7 @@
 
 % This will be overwritten by the tikz external lib if it is loaded.
 \def\pgfexternal@error@no@shipout{%
-    \PackageError{pgf}{Sorry, image externalization failed: the resulting image was EMPTY. I tried to externalize '\pgfactualjobname'. Perhaps there was a typo somewhere? Please check that your document contains '\string\beginpgfgraphicnamed{\pgfactualjobname} ... \string\endpgfgraphicnamed'}%
+    \pgferror{Sorry, image externalization failed: the resulting image was EMPTY. I tried to externalize '\pgfactualjobname'. Perhaps there was a typo somewhere? Please check that your document contains '\string\beginpgfgraphicnamed{\pgfactualjobname} ... \string\endpgfgraphicnamed'}%
 }%
 
 
@@ -512,7 +517,7 @@
         \immediate\closeout\pgf@plotwrite
       \fi
     \fi
-    \pgfsys@papersize{\the\wd\pgfpic}{\the\dimen0}%
+    \pgfsys@prepare@papersize{\the\wd\pgfpic}{\the\dimen0}%
     %
     \setbox0=\vbox{%
       % I admit that I don't know why there is this kerning:

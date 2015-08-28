@@ -1,30 +1,45 @@
 
-pgfplotsGetLuaBinaryStringFromCharIndicesChunkSize = 7000;
+require("pgfplots.binary")
 
--- Takes a table containing an arbitrary number of integers in the range 0..255 and converts it 
--- into a binary stream of the corresponding binary chars.
---
--- @param charIndices a table containing 0...N arguments; each in the range 0..255
---
--- @return a string containing binary content, one byte for each input integer.
-function pgfplotsGetLuaBinaryStringFromCharIndices(charIndices)
-	-- unpack extracts only the indices (we can't provide a table to string.char).
-	-- note that pdf.immediateobj has been designed to avoid sanity checking for invalid UTF strings -
-	-- in other words: it accepts binary strings.
-	--
-	-- unfortunately, this here fails for huge input tables:
-	--   pgfplotsretval=string.char(unpack(charIndices));
-	-- we have to create it incrementally using chunks:
-	local len = #charIndices;
-	local chunkSize = pgfplotsGetLuaBinaryStringFromCharIndicesChunkSize;
-	local buf = {};
-	-- ok, append all full chunks of chunkSize first:
-	local numFullChunks = math.floor(len/chunkSize);
-	for i = 0, numFullChunks-1, 1 do
-		table.insert(buf, string.char(unpack(charIndices, 1+i*chunkSize, (i+1)*chunkSize)));
-	end
-	-- append the rest:
-	table.insert(buf, string.char(unpack(charIndices, 1+numFullChunks*chunkSize)));
-	return table.concat(buf);
+-- all classes/globals will be added to this table:
+pgfplots = {}
+
+-- will be set by TeX:
+pgfplots.pgfplotsversion = nil
+
+if _VERSION == "Lua 5.1" or _VERSION == "Lua 5.0" then
+	texio.write("pgfplots: setting 'lua support=false': the lua version on this system is " .. _VERSION .. "; expected at least 'Lua 5.2'. Use a more recent TeX distribution to benefit from LUA in pgfplots.\n")
+	
+	-- the entire lua backend will be switched off if this is false:
+	tex.sprint("\\pgfplotsset{lua support=false}")
+	return
+else
+	-- well, 5.2 is what this stuff has been written for.
+	-- Is there a good reason why it shouldn't work on 5.1 !? No, I guess not. Except that it took me a long time
+	-- to figure out that 5.2 broke compatibility in lots of ways - and it was difficult enough to get it up and running.
+	-- If someone wants (and needs) to run it in 5.1 - I would accept patches.
 end
 
+require("pgfplots.pgfplotsutil")
+
+-- see pgfrcs.code.tex -- all versions after 3.0.0 (excluding 3.0.0) will set this version:
+if not pgf or not pgf.pgfversion then
+	pgfplots.log("log", "pgfplots.lua: loading complementary lua code for your pgf version...\n")
+	pgfplots.pgfluamathfunctions = require("pgfplotsoldpgfsupp.luamath.functions")
+	pgfplots.pgfluamathparser = require("pgfplotsoldpgfsupp.luamath.parser")
+else
+	pgfplots.pgfluamathparser = require("pgf.luamath.parser")
+	pgfplots.pgfluamathfunctions = require("pgf.luamath.functions")
+end
+pgfplots.pgftonumber = pgfplots.pgfluamathfunctions.tonumber
+pgfplots.tostringfixed = pgfplots.pgfluamathfunctions.tostringfixed
+pgfplots.toTeXstring = pgfplots.pgfluamathfunctions.toTeXstring
+
+
+require("pgfplots.plothandler")
+require("pgfplots.meshplothandler")
+require("pgfplots.colormap")
+require("pgfplots.streamer")
+
+-- hm. perhaps this here should become a separate module:
+require("pgfplots.pgfplotstexio")

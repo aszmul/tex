@@ -8,6 +8,16 @@
 }{}%
 
 
+\def\pgfplotsusecompatibilityfile#1{%
+	\pgfutil@IfUndefined{pgfplotsusecompatibilityfile@loaded@#1}{%
+		\expandafter\gdef\csname pgfplotsusecompatibilityfile@loaded@#1\endcsname{1}%
+		\input pgfplotsoldpgfsupp_#1
+	}{%
+		% already loaded.
+	}%
+}%
+
+
 \def\pgfmathfloatrounddisplaystyle@shared@impl@WRONG#1#2{%
 	{\toks0={#1}%
 	\toks1=\expandafter{\pgfmathfloatrounddisplaystyle@e@mark #2}%
@@ -51,12 +61,86 @@
 		}%
 	}%
 
-\pgfutil@ifundefined{pgfmathdeclarepseudoconstant}{
+\pgfutil@ifundefined{pgfmathfloatatan2}{
 	\immediate\write16{Package pgfplots: loading complementary arithmetics for your pgf version...}
 	\input pgfplotsoldpgfsupp_pgflibraryfpu.code.tex
+	\input pgfplotsoldpgfsupp_pgfmathfloat.code.tex
 }
 {}%
 
+\pgfutil@IfUndefined{pgfmathdeclarefunction}{
+	\pgfplots@warning{Parts of pgfplots require PGF 2.10; you have PGF 2.00 . Consider upgrading if you experience problems.}%
+}{%
+}%
+
+\pgfutil@IfUndefined{pgfapplistnewempty}{%
+	\immediate\write16{Package pgfplots: loading complementary utilities for your pgf version...}
+	\csname newtoks\endcsname\t@pgf@toka
+	\csname newtoks\endcsname\t@pgf@tokb
+	\csname newtoks\endcsname\t@pgf@tokc
+	\gdef\pgfutil@advancestringcounter{\pgfplotsutil@advancestringcounter}%
+	\input pgfplotsoldpgfsupp_pgfutil-common-lists.tex
+}{}%
+
+\pgfutil@IfUndefined{pgfmathiftrigonometricusesdeg}{%
+	\pgfutil@ifundefined{pgfmathdeclarefunction}{%
+		% PGF 2.00 !? Well, trig format won't work here.
+	}{%
+		\input pgfplotsoldpgfsupp_trig_format.code.tex
+	}%
+}{}%
+
+\ifpgfplots@LUA@supported
+	\def\PATCH@pgfmath@local@function@body#1;{%
+		\def\pgfmath@local@body{#1}%
+		\begingroup%
+			\c@pgf@counta=0\relax%
+			\ifx\pgfmath@local@args\pgfmath@empty%
+				\expandafter\pgfmath@toks\expandafter=\expandafter{\pgfmath@local@body}%
+			\else%
+				\pgfmath@toks={}%
+				\expandafter\pgfmath@local@function@@body\pgfmath@local@args,,%
+			\fi%
+			\xdef\pgfmath@local@temp{%
+				\noexpand\pgfmathnotifynewdeclarefunction{\pgfmath@local@name}{\the\c@pgf@counta}%
+					{\the\pgfmath@toks}%
+			}%
+		\endgroup%
+		\pgfmath@local@temp%
+	}
+	% #1: the name
+	% #2: the number of arguments <n>
+	% #3: a math expression containing '#1', '#2', ... ,'#'<n>
+	% This callback is overwritten by pgflibraryluamath.
+	\def\PATCH@pgfmathnotifynewdeclarefunction#1#2#3{%
+		\pgfmathdeclarefunction{#1}{#2}{\pgfmathparse{#3}}%
+	}%
+	%
+	% currently, pgfplots does NOT call directly call any TeX macros
+	% from this library - but it relies on the fact that "trig
+	% format", \pgfmathsetseed and other configuration macros also
+	% mirror their values in LUA.
+	% And this mirroring is done in library luamath:
+	\def\pgfplots@glob@TMPa{3.0.0}%
+	\ifx\pgfversion\pgfplots@glob@TMPa
+		% 3.0.0 does not have the (correct) luamath library.
+		\let\pgfmathnotifynewdeclarefunction=\PATCH@pgfmathnotifynewdeclarefunction
+		\let\pgfmath@local@function@body=\PATCH@pgfmath@local@function@body
+		\pgfplotsusecompatibilityfile{pgflibraryluamath.code.tex}
+	\else
+		\pgfutil@IfFileExists{pgflibraryluamath.code.tex}{%
+			% ah - we have a very recent version of PGF.
+			% Well, it will hopefully come with a suitable version of the
+			% luamath library! Use it.
+			\usepgflibrary{luamath}%
+		}{%
+			% hm. PGF 2.10 ?
+			%
+			% FIXME 
+			%\pgfplots@LUA@supportedfalse
+		}%
+	\fi
+\fi
 
 
 \endinput

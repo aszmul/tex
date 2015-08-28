@@ -85,15 +85,60 @@
 	/pgfplots/table/meta index/.initial=,
 	/pgfplots/table/meta/.initial=,
 	/pgfplots/table/meta expr/.initial=,
-	/pgfplots/table/x error index/.initial=,
-	/pgfplots/table/y error index/.initial=,
-	/pgfplots/table/z error index/.initial=,
-	/pgfplots/table/x error/.initial=,
-	/pgfplots/table/y error/.initial=,
-	/pgfplots/table/z error/.initial=,
-	/pgfplots/table/x error expr/.initial=,
-	/pgfplots/table/y error expr/.initial=,
-	/pgfplots/table/z error expr/.initial=,
+	/pgfplots/table/x error index/.style={
+		x error plus index={#1},%
+		x error minus index={#1}%
+	},
+	/pgfplots/table/y error index/.style={
+		y error plus index={#1},%
+		y error minus index={#1}%
+	},
+	/pgfplots/table/z error index/.style={
+		z error plus index={#1},%
+		z error minus index={#1}%
+	},
+	/pgfplots/table/x error/.style={
+		x error plus={#1},%
+		x error minus={#1}%
+	},
+	/pgfplots/table/y error/.style={
+		y error plus={#1},%
+		y error minus={#1}%
+	},
+	/pgfplots/table/z error/.style={
+		z error plus={#1},%
+		z error minus={#1}%
+	},
+	/pgfplots/table/x error expr/.style={
+		x error plus expr={#1},%
+		x error minus expr={#1}%
+	},
+	/pgfplots/table/y error expr/.style={
+		y error plus expr={#1},%
+		y error minus expr={#1}%
+	},
+	/pgfplots/table/z error expr/.style={
+		z error plus expr={#1},%
+		z error minus expr={#1}%
+	},
+	/pgfplots/table/x error plus index/.initial=,
+	/pgfplots/table/y error plus index/.initial=,
+	/pgfplots/table/z error plus index/.initial=,
+	/pgfplots/table/x error plus/.initial=,
+	/pgfplots/table/y error plus/.initial=,
+	/pgfplots/table/z error plus/.initial=,
+	/pgfplots/table/x error plus expr/.initial=,
+	/pgfplots/table/y error plus expr/.initial=,
+	/pgfplots/table/z error plus expr/.initial=,
+	/pgfplots/table/x error minus index/.initial=,
+	/pgfplots/table/y error minus index/.initial=,
+	/pgfplots/table/z error minus index/.initial=,
+	/pgfplots/table/x error minus/.initial=,
+	/pgfplots/table/y error minus/.initial=,
+	/pgfplots/table/z error minus/.initial=,
+	/pgfplots/table/x error minus expr/.initial=,
+	/pgfplots/table/y error minus expr/.initial=,
+	/pgfplots/table/z error minus expr/.initial=,
 	/pgfplots/table/ignore chars/.initial=,
 	/pgfplots/table/white space chars/.initial=,
 	/pgfplots/table/comment chars/.initial=,
@@ -153,6 +198,13 @@
 		\fi
 		\let#1=\pgfutil@empty
 	},%
+	/pgfplots/exception/table columns unbalanced/.code={%
+		\ifx\pgfplotsexceptionmsg\relax
+			\pgfplots@error{#1}%
+		\else
+			\pgfplots@error{\pgfplotsexceptionmsg}%
+		\fi
+	},
 }
 
 % \pgfplotstableread[OPTIONS] {FILE} to \name
@@ -244,7 +296,24 @@
 
 % Invokes #2 if '#1' is an already loaded table and #3 if not.
 \long\def\pgfplotstable@isloadedtable#1#2#3{%
-	\pgfplotsutil@ifdefinedui@withsuffix{#1}{@@table@name}{#2}{#3}%
+	\ifcase\pgfplotstableread@ROWSEP@CASE\relax
+		% row sep=newline
+		\let\pgfplots@loc@TMPa=\pgfplotstableread@NL@other%
+	\or
+		% row sep=crcr
+		\def\pgfplots@loc@TMPa{\\}%
+	\fi
+	%
+	\expandafter\pgfutil@in@\expandafter{\pgfplots@loc@TMPa}{#1}%
+	\ifpgfutil@in@
+		% Hah! it contains the row separator! This is NO macro name!
+		% -> it is an inline table definition. Don't try to
+		% assemble a macro name (may run into out-of-memory)
+		#3\relax%
+	\else
+		% ok, the early-out was not met. Make check:
+		\pgfplotsutil@ifdefinedui@withsuffix{#1}{@@table@name}{#2}{#3}%
+	\fi
 }%
 
 % If the colum name `#1' is a `create on use' speicifcation, #2 is
@@ -308,6 +377,10 @@
 		% #2: table struct
 		% #3: true code
 		% #4: false code
+		% FIXME : THIS IS BUGGY: the macro may exist, but is it
+		% (still) part of the table!? Currently, there is a workaround
+		% such that \pgfplotstablenew cleans up and avoids that case..
+		% and we have no "drop column" currently.
 		ifexists	=\pgfutil@ifundefined{\string##2@##1}{##4}{##3},
 		%
 		% Low level method to return (the actual content) of column #1 of
@@ -646,7 +719,7 @@
 	% this employs a side effect: \futurelet gobbles any spaces
 	% (including newlines).
 }%
-\def\pgfplotstablecollectoneargwithpreparecatcodes@end#1#2{%
+\long\def\pgfplotstablecollectoneargwithpreparecatcodes@end#1#2{%
 	\endgroup
 	#1{#2}%
 }%
@@ -729,6 +802,7 @@
 }%
 \begingroup
 \catcode`\^^M=12\relax%
+\gdef\pgfplotstableread@NL@other{^^M}%
 \long\gdef\pgfplotstableread@checkinlineformat@NL@#1^^M#2\pgfplotstable@EOI{%
 	\def\pgfplotstable@loc@TMPa{#2}%
 	\ifx\pgfplotstable@loc@TMPa\pgfutil@empty%
@@ -773,6 +847,14 @@
 		\fi
 	\or
 		\pgfplotstableread@inlinefalse
+	\fi
+	%
+	\ifpgfplotstableread@inline
+	\else
+		\if1\pgfplotstableread@ROWSEP@CASE
+			% row sep=crcr
+			\pgfplotsthrow{unsupported operation}{Sorry, the choice 'row sep=crcr' is currently only available for inline tables, not for external files}\pgfeov
+		\fi
 	\fi
 	%
 	% optimizations:
@@ -1135,7 +1217,7 @@
 		\fi
 		\ifnum\pgfplotstableread@curcol=\pgfplotstableread@numcols\relax
 		\else
-			\pgfplotstable@error{input table '\pgfplotstableread@filename' has an unbalanced number  of columns in row '\thepgfplotstableread@lineno' (expected '\thepgfplotstableread@numcols' cols; got '\thepgfplotstableread@curcol'). Maybe the input table is corrupted? If you need unbalanced data, consider using 'nan' in empty cells (perhaps combined with 'unbounded coords=jump')}%
+			\pgfplotsthrow{table columns unbalanced}{input table '\pgfplotstableread@filename' has an unbalanced number  of columns in row '\thepgfplotstableread@lineno' (expected '\thepgfplotstableread@numcols' cols; got '\thepgfplotstableread@curcol'). Maybe the input table is corrupted? If you need unbalanced data, consider using 'nan' in empty cells (perhaps combined with 'unbounded coords=jump')}\pgfeov%
 		\fi
 		\ifpgfplots@tableread@to@listener
 			\ifpgfplotstableread@curline@contains@colnames
@@ -1265,7 +1347,7 @@
 % entries.
 \long\def\pgfplotstableread@impl@DO#1#2{%
 	\ifpgfplotstable@trimcells
-		\def\pgfplotstableread@impl@ITERATE@NEXT@##1{%
+		\long\def\pgfplotstableread@impl@ITERATE@NEXT@##1{%
 			\pgfkeys@spdef\pgfplotstableread@impl@ITERATE@NEXT@@@{##1}%
 			\expandafter#1\expandafter{\pgfplotstableread@impl@ITERATE@NEXT@@@}%
 		}%
@@ -1494,9 +1576,9 @@
 	\pgfplotstable@getcol{#1}\of{\pgfplotstableread@filename}\to{#2}\getcolmethod{getptr}%
 }%
 
-% As \pgfplotstablereadgetptrtocolname, but this here access columns
+% As \pgfplotstablereadgetptrtocolname, but this here accesses columns
 % by index.
-\def\pgfplotstablereadgetptrtocolindex@#1#2{\def#2{#1}}%
+\def\pgfplotstablereadgetptrtocolindex@#1#2{\edef#2{#1}}%
 
 % \pgfplotstablereadevalptr{<\ptr>}{<\content}
 % writes the current value of <\ptr> to <\content>. The pointer <\ptr>
@@ -1525,7 +1607,7 @@
 	\else
 		\begingroup
 		\t@pgfplots@tokc={#1}%
-		\pgfplotstable@error{Table '\pgfplotstableread@filename' appears to have too many columns in line \thepgfplotstableread@lineno: Ignoring '\the\t@pgfplots@tokc'. PGFPlots found that the number of columns is larger than the previously determined number of columns. Please verify that every cell entry is separated correctly (use braces {<cell entry>} if necessary. Also verify that column names are plain ASCII.). This error is not critical}%
+		\pgfplotsthrow{table columns unbalanced}{Table '\pgfplotstableread@filename' appears to have too many columns in line \thepgfplotstableread@lineno: Ignoring '\the\t@pgfplots@tokc'. PGFPlots found that the number of columns is larger than the previously determined number of columns. Please verify that every cell entry is separated correctly (use braces {<cell entry>} if necessary. Also verify that column names are plain ASCII.). This error is not critical}\pgfeov%
 		\endgroup
 	\fi
 }
@@ -1533,6 +1615,14 @@
 
 
 \long\def\pgfplotstableread@impl@collectcolnames@NEXT#1{%
+	\edef\pgfplotstable@loc@TMPa{#1}%
+	\ifx\pgfplotstable@loc@TMPa\pgfutil@empty
+		\edef\pgfplotstable@loc@TMPa{\thepgfplotstableread@curcol}%
+		\pgfplotswarning{empty column name}{\pgfplotstableread@filename}{\pgfplotstable@loc@TMPa'}\pgfeov%
+	\fi
+	\expandafter\pgfplotstableread@impl@collectcolnames@NEXT@\expandafter{\pgfplotstable@loc@TMPa}%
+}
+\long\def\pgfplotstableread@impl@collectcolnames@NEXT@#1{%
 %\pgfplots@message{Got column name no \thepgfplotstableread@curcol\ as '#1'}%
 	\pgfutil@ifundefined{pgfplotstableread@impl@COLNAME@#1}{%
 		\def\pgfplotstable@loc@TMPa{#1}%

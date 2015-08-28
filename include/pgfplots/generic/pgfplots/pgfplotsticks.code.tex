@@ -60,7 +60,7 @@
 		% special case.
 		\begingroup
 		\c@pgf@counta=#1\relax
-		\ifnum\c@pgf@counta<0
+		\ifdim#1.#2pt<0pt %
 			\advance\c@pgf@counta by-1
 			\pgfmathsubtract@{1}{0.#2}%
 			\expandafter\pgfplots@is@log@tick@a@minor@tick@pos@IDENTIFY@LOGi\pgfmathresult\relax
@@ -148,6 +148,10 @@
 %    FIXME : does that need further attention?
 \def\pgfplots@init@scaled@tick@for#1{%
 	\global\def\pgfplots@glob@TMPa{0}%
+	\expandafter\pgfplotslistcheckempty\csname pgfplots@prepared@tick@positions@major@#1\endcsname
+	\ifpgfplotslistempty
+		% we have no tick labels. Omit the tick scale label as well!
+	\else
 	\begingroup
 	\ifcase\csname pgfplots@scaled@ticks@#1@choice\endcsname\relax
 	% CASE 0 : scaled #1 ticks=false: do nothing here.
@@ -172,17 +176,18 @@
 		%
 		\expandafter\pgfmathfloat@decompose@E\pgfplots@cur@min@unscaled\relax\pgfmathfloat@a@E
 		\expandafter\pgfmathfloat@decompose@E\pgfplots@cur@max@unscaled\relax\pgfmathfloat@b@E
+		\pgfplots@init@scaled@tick@normalize@exponents
 		\ifnum\pgfmathfloat@b@E<\pgfmathfloat@a@E
 			\pgfmathfloat@b@E=\pgfmathfloat@a@E
 		\fi
 		\xdef\pgfplots@glob@TMPa{\pgfplots@scale@ticks@above@exponent}%
-		\expandafter\ifnum\pgfplots@glob@TMPa<\pgfmathfloat@b@E
+		\ifnum\pgfplots@glob@TMPa<\pgfmathfloat@b@E
 			% ok, scale it:
 			\multiply\pgfmathfloat@b@E by-1
 			\xdef\pgfplots@glob@TMPa{\the\pgfmathfloat@b@E}%
 		\else
 			\xdef\pgfplots@glob@TMPa{\pgfplots@scale@ticks@below@exponent}%
-			\expandafter\ifnum\pgfplots@glob@TMPa>\pgfmathfloat@b@E
+			\ifnum\pgfplots@glob@TMPa>\pgfmathfloat@b@E
 				% ok, scale it:
 				\multiply\pgfmathfloat@b@E by-1
 				\xdef\pgfplots@glob@TMPa{\the\pgfmathfloat@b@E}%
@@ -207,7 +212,86 @@
 		\expandafter\global\expandafter\let\expandafter\pgfplots@glob@TMPa\csname pgfplots@scaled@ticks@#1@arg\endcsname
 	\fi
 	\endgroup
+	\fi
 	\expandafter\let\csname pgfplots@tick@scale@#1\endcsname=\pgfplots@glob@TMPa%
+}
+
+% Handles the case that one of the limits is 0 (or unbounded, although
+% that might not be a use-case at all).
+%
+% Note that 0 = 0*10^A (naturally). In this case, A can be undefined,
+% and we want to use B's exponent (only) for the decision here.
+%
+% INPUT:
+%  - \pgfplots@cur@min@unscaled, 
+%  - \pgfplots@cur@max@unscaled,
+%  - \pgfmathfloat@a@E
+%  - \pgfmathfloat@b@E
+%
+% Output:
+%  normalized values of \pgfmathfloat@a@E and \pgfmathfloat@b@E
+\def\pgfplots@init@scaled@tick@normalize@exponents{%
+	\pgfmathfloatgetflags\pgfplots@cur@min@unscaled\pgfmathfloat@a@S
+	\pgfmathfloatgetflags\pgfplots@cur@max@unscaled\pgfmathfloat@b@S
+	\ifcase\pgfmathfloat@a@S%
+		% min = 0. 
+		\ifcase\pgfmathfloat@b@S
+			% max =0
+			% normalize to 0 * 10^0 !
+			\pgfmathfloat@a@E=0 %
+			\pgfmathfloat@b@E=0 %
+		\or
+			% max > 0
+			% since 0 = 0 * 10^A for any A, tick scaling is based on
+			% B only.
+			\pgfmathfloat@a@E=\pgfmathfloat@b@E
+		\or
+			% max < 0
+			\pgfmathfloat@a@E=\pgfmathfloat@b@E
+		\else
+			% max is unbounded. normalize exponent to something
+			% useful:
+			\pgfmathfloat@a@E=0 %
+			\pgfmathfloat@b@E=0 %
+		\fi
+	\or
+		% min>0
+		\ifcase\pgfmathfloat@b@S
+			% max =0
+			% since 0 = 0 * 10^B for any B, tick scaling is based on
+			% A only.
+			\pgfmathfloat@b@E=\pgfmathfloat@a@E
+		\or
+			% max > 0
+		\or
+			% max < 0
+		\else
+			% max is unbounded. normalize exponent to something
+			% useful:
+			\pgfmathfloat@b@E=\pgfmathfloat@a@E
+		\fi
+	\or
+		% min<0
+		\ifcase\pgfmathfloat@b@S
+			% max =0
+			% since 0 = 0 * 10^B for any B, tick scaling is based on
+			% A only.
+			\pgfmathfloat@b@E=\pgfmathfloat@a@E
+		\or
+			% max > 0
+		\or
+			% max < 0
+		\else
+			% max is unbounded. normalize exponent to something
+			% useful:
+			\pgfmathfloat@b@E=\pgfmathfloat@a@E
+		\fi
+	\else
+		% min is unbounded:
+		% normalize somehow.
+		\pgfmathfloat@a@E=0 %
+		\pgfmathfloat@b@E=0 %
+	\fi
 }
 
 % x-axis tick labels for #1th tick
@@ -445,6 +529,7 @@
 	\pgfplotsqpointoutsideofaxis{\csname pgfplots@#1ticklabelaxisspec\endcsname}{#2}{#3}%
 }%
 \def\pgfplotsqpointoutsideofticklabelaxisrel#1#2#3{%
+%\message{using \string\pgfplotsqpointoutsideofaxisrel{\csname pgfplots@#1ticklabelaxisspec\endcsname}{#2}{#3}^^J}%
 	\pgfplotsqpointoutsideofaxisrel{\csname pgfplots@#1ticklabelaxisspec\endcsname}{#2}{#3}%
 }%
 \def\pgfplotsqpointoutsideofticklabelaxistransformed#1#2#3{%
@@ -513,80 +598,99 @@
 
 \def\pgfplots@user@ticklabel@list@x{%
 	\pgfplotslistselectorempty\ticknum\of\pgfplots@xticklabels\to\tick
-	\tick
+	\pgfplots@ticklabel@typeset@arg\tick
 }
 \def\pgfplots@user@ticklabel@list@y{%
 	\pgfplotslistselectorempty\ticknum\of\pgfplots@yticklabels\to\tick
-	\tick
+	\pgfplots@ticklabel@typeset@arg\tick
 }
 \def\pgfplots@user@ticklabel@list@z{%
 	\pgfplotslistselectorempty\ticknum\of\pgfplots@zticklabels\to\tick
-	\tick
+	\pgfplots@ticklabel@typeset@arg\tick
 }
 \def\pgfplots@user@extra@ticklabel@list@x{%
 	\pgfplotslistselectorempty\ticknum\of\pgfplots@extra@xticklabels\to\tick
-	\tick
+	\pgfplots@ticklabel@typeset@arg\tick
 }
 \def\pgfplots@user@extra@ticklabel@list@y{%
 	\pgfplotslistselectorempty\ticknum\of\pgfplots@extra@yticklabels\to\tick
-	\tick
+	\pgfplots@ticklabel@typeset@arg\tick
 }
 \def\pgfplots@user@extra@ticklabel@list@z{%
 	\pgfplotslistselectorempty\ticknum\of\pgfplots@extra@zticklabels\to\tick
-	\tick
+	\pgfplots@ticklabel@typeset@arg\tick
 }
+
+\def\pgfplots@limit@max@reg#1{%
+	\if\pgfkeysvalueof{/pgfplots/#1 dir/value}n%
+		\csname pgfplots@#1max@reg\endcsname
+	\else
+		\csname pgfplots@#1min@reg\endcsname
+	\fi
+}%
+\def\pgfplots@limit@min@reg#1{%
+	\if\pgfkeysvalueof{/pgfplots/#1 dir/value}n%
+		\csname pgfplots@#1min@reg\endcsname
+	\else
+		\csname pgfplots@#1max@reg\endcsname
+	\fi
+}%
 
 % Check if a label does not cross the x-axis
 \def\pgfplots@ytick@check@tickshow{%
 	\pgfplots@tickshowtrue
-	\if\pgfplots@yaxislinesnum2% center
-		\ifcase\pgfplots@xaxislinesnum\relax
-			\pgfplotsmath@ifapproxequal@dim
-				{\pgfplots@tmpa}{\pgfplots@ymin@reg}
-				{\pgfplots@loc@tick@placement@tolerance}
-				{%
-					\pgfplots@tickshowfalse
-				}{}%
-			\pgfplotsmath@ifapproxequal@dim
-				{\pgfplots@tmpa}{\pgfplots@ymax@reg}
-				{\pgfplots@loc@tick@placement@tolerance}
-				{%
-					\pgfplots@tickshowfalse
-				}{}%
-		\or
-			\pgfplotsmath@ifapproxequal@dim
-				{\pgfplots@tmpa}{\pgfplots@ymin@reg}
-				{\pgfplots@loc@tick@placement@tolerance}
-				{%
-					\pgfplots@tickshowfalse
-				}{%
-				}%
-		\or
-			\pgfplotsmath@ifapproxequal@dim
-				{\pgfplots@tmpa}{\pgfplots@logical@ZERO@y pt}
-				{\pgfplots@loc@tick@placement@tolerance}
-				{%
-					\pgfplots@tickshowfalse
-				}{}%
-		\or
-			\pgfplotsmath@ifapproxequal@dim
-				{\pgfplots@tmpa}{\pgfplots@ymax@reg}
-				{\pgfplots@loc@tick@placement@tolerance}
-				{%
-					\pgfplots@tickshowfalse
-				}{}%
+	\ifpgfplots@hide@obscured@ytick
+		\if\pgfplots@yaxislinesnum2% center
+			\ifcase\pgfplots@xaxislinesnum\relax
+				\pgfplotsmath@ifapproxequal@dim
+					{\pgfplots@tmpa}{\pgfplots@limit@min@reg{y}}
+					{\pgfplots@loc@tick@placement@tolerance}
+					{%
+						\pgfplots@tickshowfalse
+					}{}%
+				\pgfplotsmath@ifapproxequal@dim
+					{\pgfplots@tmpa}{\pgfplots@limit@max@reg{y}}
+					{\pgfplots@loc@tick@placement@tolerance}
+					{%
+						\pgfplots@tickshowfalse
+					}{}%
+			\or
+				\pgfplotsmath@ifapproxequal@dim
+					{\pgfplots@tmpa}{\pgfplots@limit@min@reg{y}}
+					{\pgfplots@loc@tick@placement@tolerance}
+					{%
+						\pgfplots@tickshowfalse
+					}{%
+					}%
+			\or
+				\pgfplotsmath@ifapproxequal@dim
+					{\pgfplots@tmpa}{\pgfplots@logical@ZERO@y pt}
+					{\pgfplots@loc@tick@placement@tolerance}
+					{%
+						\pgfplots@tickshowfalse
+					}{}%
+			\or
+				\pgfplotsmath@ifapproxequal@dim
+					{\pgfplots@tmpa}{\pgfplots@limit@max@reg{y}}
+					{\pgfplots@loc@tick@placement@tolerance}
+					{%
+						\pgfplots@tickshowfalse
+					}{}%
+			\fi
 		\fi
 	\fi
 }
 \def\pgfplots@ztick@check@tickshow{%
 	\pgfplots@tickshowtrue
-	\if\pgfplots@zaxislinesnum2% center
-		\pgfplotsmath@ifapproxequal@dim
-			{\pgfplots@tmpa}{\pgfplots@logical@ZERO@z pt}
-			{\pgfplots@loc@tick@placement@tolerance}
-			{%
-				\pgfplots@tickshowfalse
-			}{}%
+	\ifpgfplots@hide@obscured@ztick
+		\if\pgfplots@zaxislinesnum2% center
+			\pgfplotsmath@ifapproxequal@dim
+				{\pgfplots@tmpa}{\pgfplots@logical@ZERO@z pt}
+				{\pgfplots@loc@tick@placement@tolerance}
+				{%
+					\pgfplots@tickshowfalse
+				}{}%
+		\fi
 	\fi
 }%
 
@@ -723,41 +827,43 @@
 % This is just a special case for centered axis lines.
 \def\pgfplots@xtick@check@tickshow{%
 	\pgfplots@tickshowtrue
-	\if\pgfplots@xaxislinesnum2% center
-		\ifcase\pgfplots@yaxislinesnum\relax
-			\pgfplotsmath@ifapproxequal@dim
-				{\pgfplots@tmpa}{\pgfplots@xmin@reg}
-				{\pgfplots@loc@tick@placement@tolerance}
-				{%
-					\pgfplots@tickshowfalse
-				}{}%
-			\pgfplotsmath@ifapproxequal@dim
-				{\pgfplots@tmpa}{\pgfplots@xmax@reg}
-				{\pgfplots@loc@tick@placement@tolerance}
-				{%
-					\pgfplots@tickshowfalse
-				}{}%
-		\or
-			\pgfplotsmath@ifapproxequal@dim
-				{\pgfplots@tmpa}{\pgfplots@xmin@reg}
-				{\pgfplots@loc@tick@placement@tolerance}
-				{%
-					\pgfplots@tickshowfalse
-				}{}%
-		\or
-			\pgfplotsmath@ifapproxequal@dim
-				{\pgfplots@tmpa}{\pgfplots@logical@ZERO@x pt}
-				{\pgfplots@loc@tick@placement@tolerance}
-				{%
-					\pgfplots@tickshowfalse
-				}{}%
-		\or
-			\pgfplotsmath@ifapproxequal@dim
-				{\pgfplots@tmpa}{\pgfplots@xmax@reg}
-				{\pgfplots@loc@tick@placement@tolerance}
-				{%
-					\pgfplots@tickshowfalse
-				}{}%
+	\ifpgfplots@hide@obscured@xtick
+		\if\pgfplots@xaxislinesnum2% center
+			\ifcase\pgfplots@yaxislinesnum\relax
+				\pgfplotsmath@ifapproxequal@dim
+					{\pgfplots@tmpa}{\pgfplots@limit@min@reg{x}}
+					{\pgfplots@loc@tick@placement@tolerance}
+					{%
+						\pgfplots@tickshowfalse
+					}{}%
+				\pgfplotsmath@ifapproxequal@dim
+					{\pgfplots@tmpa}{\pgfplots@limit@max@reg{x}}
+					{\pgfplots@loc@tick@placement@tolerance}
+					{%
+						\pgfplots@tickshowfalse
+					}{}%
+			\or
+				\pgfplotsmath@ifapproxequal@dim
+					{\pgfplots@tmpa}{\pgfplots@limit@min@reg{x}}
+					{\pgfplots@loc@tick@placement@tolerance}
+					{%
+						\pgfplots@tickshowfalse
+					}{}%
+			\or
+				\pgfplotsmath@ifapproxequal@dim
+					{\pgfplots@tmpa}{\pgfplots@logical@ZERO@x pt}
+					{\pgfplots@loc@tick@placement@tolerance}
+					{%
+						\pgfplots@tickshowfalse
+					}{}%
+			\or
+				\pgfplotsmath@ifapproxequal@dim
+					{\pgfplots@tmpa}{\pgfplots@limit@max@reg{x}}
+					{\pgfplots@loc@tick@placement@tolerance}
+					{%
+						\pgfplots@tickshowfalse
+					}{}%
+			\fi
 		\fi
 	\fi
 }
@@ -1159,6 +1265,14 @@
 % region. Tick lines (and grid lines) won't extend to the left or
 % right of axis #1.
 \def\pgfplots@drawtickgridlines@INSTALLCLIP@onorientedsurf#1{%
+	\ifpgfplots@enable@tick@line@clipping
+		% this is LEGACY SUPPORT only. I did not want to change
+		% existing bounding boxes.
+		% Starting with 'compat=1.11', this is OFF.
+		\pgfplots@drawtickgridlines@INSTALLCLIP@onorientedsurf@{#1}%
+	\fi
+}
+\def\pgfplots@drawtickgridlines@INSTALLCLIP@onorientedsurf@#1{%
 	\pgfinterruptboundingbox%
 	\begingroup
 		% the case ||e_b|| == 0 should never happen here! Should be
@@ -1180,16 +1294,35 @@
 		\relax
 	}{%
 		\begingroup
-		\pgfplots@ifaxisline@B@onorientedsurf@should@be@drawn{0}{%
+		% FIXME : the case of centered axis lines is missing here.
+		% 0 = lower limit,
+		% 1 = upper limit
+		% 2 = centered...
+		% Currently, "0" is also used for centered axis lines.
+		\if 2\csname pgfplots@\pgfplotspointonorientedsurfaceA axislinesnum\endcsname
+			% centered axis lines need no complicated visibility
+			% checks. They need tick lines in *any* case.
+			% So, enabled them here!
 			\def\pgfplots@drawticklines@for@placecomputedtick@LOWEROK{1}%
-		}{%
-			\def\pgfplots@drawticklines@for@placecomputedtick@LOWEROK{0}%
-		}%
-		\pgfplots@ifaxisline@B@onorientedsurf@should@be@drawn{1}{%
-			\def\pgfplots@drawticklines@for@placecomputedtick@UPPEROK{1}%
-		}{%
+			%
+			% UPPEROK is unnecessary in this context - for centered
+			% axis lines, it will be disabled anyway because the
+			% styles like 'axis x line*' set \pgfplots@xticknum to
+			% center - and that means that no tick lines will be drawn
+			% (see below).
 			\def\pgfplots@drawticklines@for@placecomputedtick@UPPEROK{0}%
-		}%
+		\else
+			\pgfplots@ifaxisline@B@onorientedsurf@should@be@drawn{0}{%
+				\def\pgfplots@drawticklines@for@placecomputedtick@LOWEROK{1}%
+			}{%
+				\def\pgfplots@drawticklines@for@placecomputedtick@LOWEROK{0}%
+			}%
+			\pgfplots@ifaxisline@B@onorientedsurf@should@be@drawn{1}{%
+				\def\pgfplots@drawticklines@for@placecomputedtick@UPPEROK{1}%
+			}{%
+				\def\pgfplots@drawticklines@for@placecomputedtick@UPPEROK{0}%
+			}%
+		\fi
 		\if\pgfkeysvalueof{/pgfplots/\pgfplotspointonorientedsurfaceB\space dir/value}r%
 			% local special handling for reversed axes: exchange
 			% meaning of 'left' and 'right' here.
@@ -1972,7 +2105,7 @@
 						\expandafter\global\expandafter\let\expandafter\pgfplots@glob@TMPa\csname pgfplots@#1tick\endcsname
 						\expandafter\global\expandafter\let\expandafter\pgfplots@glob@TMPb\csname pgfplots@tick@distance@#1\endcsname
 					\else
-						\pgfplots@warning{Tick computation for direction #1 failed; there are always too few tick labels (try min ticks has already been advanced to \axisdefaulttryminticks)}%
+						\pgfplotswarning{tick computation failed}{#1}{\axisdefaulttryminticks}\pgfeov%
 						\def\pgfplots@tick@returnval@ready{0}%
 					\fi
 					\pgfmath@smuggleone\pgfplots@tick@returnval@ready

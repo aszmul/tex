@@ -1,12 +1,91 @@
 % ======================================================
 % compatibility with PGF 2.10
 % ======================================================
+%
+%%% This file is a copy of some part of PGF/Tikz.
+%%% It has been copied here to provide :
+%%%  - compatibility with older PGF versions
+%%%  - availability of PGF contributions by Christian Feuersaenger
+%%%    which are necessary or helpful for pgfplots.
+%%%
+%%% It contains a couple of patches such that selected changes which
+%%% are also part of PGF/TikZ (and can be found in the development
+%%% version of PGF/TikZ) are available within pgfplots.
+%%%
+%%% Typically, these modifications have been done by the pgfplots team
+%%% as contribution to PGf/TIKZ
+%
+% Support for the contents of this file will NOT be done by the PGF/TikZ team. 
+% Please contact the author and/or maintainer of pgfplots (Christian Feuersaenger) if you need assistance in conjunction
+% with the deployment of this patch or partial content of PGF. Note that the author and/or maintainer of pgfplots has no obligation to fix anything:
+% This file comes without any warranty as the rest of pgfplots; there is no obligation for help.
 \def\pgfdeclarelayer#1{%
   \pgfutil@ifundefined{pgf@layerbox@#1}{%
-	  \expandafter\pgf@newbox\csname pgf@layerbox@#1\endcsname%
-	  \expandafter\pgf@newbox\csname pgf@layerboxsaved@#1\endcsname%
+	  \expandafter\expandafter\csname pgf@newbox\endcsname\csname pgf@layerbox@#1\endcsname%
+	  \expandafter\expandafter\csname pgf@newbox\endcsname\csname pgf@layerboxsaved@#1\endcsname%
   }{}%
 }
+
+\def\tikz@key@name@path@wrong#1#2{%
+    \tikz@addmode{%
+      \pgfsyssoftpath@getcurrentpath\tikz@intersect@temppath@round%
+      \pgfprocessround\tikz@intersect@temppath@round\tikz@intersect@temppath%
+      \ifx\tikz@intersect@namedpaths\pgfutil@empty%
+      \else%
+        \tikz@intersect@namedpaths%
+        \pgfutil@ifundefined{tikz@intersect@path@name@#1}{}%
+        {%
+          \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@intersect@@temppath%
+          \expandafter\expandafter\expandafter{\csname tikz@intersect@path@name@#1\endcsname}%
+          \expandafter\expandafter\expandafter\def\expandafter\expandafter\expandafter\tikz@intersect@temppath%
+          \expandafter\expandafter\expandafter{\expandafter\tikz@intersect@temppath\tikz@intersect@temppath}%
+        }%
+      \fi%
+      \tikz@intersect@addto@path@names{#1}{#2}%
+    }%
+}%
+
+\def\tikz@key@name@path@new#1#2{%
+    \tikz@addmode{%
+      \pgfsyssoftpath@getcurrentpath\tikz@intersect@temppath@round%
+      \pgfprocessround\tikz@intersect@temppath@round\tikz@intersect@temppath%
+      \ifx\tikz@intersect@namedpaths\pgfutil@empty%
+      \else%
+        \tikz@intersect@namedpaths%
+      \fi%
+      \tikz@intersect@addto@path@names{#1}{#2}%
+    }%
+}%
+
+\ifx\tikz@key@name@path@wrong\tikz@key@name@path
+	\let\tikz@key@name@path=\tikz@key@name@path@new
+\fi
+
+\def\pgfutil@insertatbegincurrentpagefrombox@WRONG#1{%
+  \global\setbox\pgfutil@abb\hbox{\unhbox\pgfutil@abb#1}%
+}
+
+% needed for dvipdfmx and shader=interp
+\def\pgfutil@insertatbegincurrentpagefrombox@FIXED#1{%
+  \edef\pgf@temp{\the\wd\pgfutil@abb}%
+  \global\setbox\pgfutil@abb\hbox{%
+  	\unhbox\pgfutil@abb 
+	%
+	% the order in which \pgfutil@insertatbegincurrentpagefrombox
+	% matters unless we make the following -shift!
+	% To see this, consider writing two such statements. The second
+	% one will (naturally) be placed more to the right, although there
+	% is no apparent reason why it should.
+	%
+	% CF observed problems when placing patterns in XObjects without
+	% this skip (dvipdfmx driver for pgfplots shader=interp)
+	\hskip-\pgf@temp\relax
+	#1%
+  }%
+}
+\expandafter\ifx\csname pgfutil@insertatbegincurrentpagefrombox\endcsname\pgfutil@insertatbegincurrentpagefrombox@WRONG
+	\let\pgfutil@insertatbegincurrentpagefrombox=\pgfutil@insertatbegincurrentpagefrombox@FIXED
+\fi
 
 % check if \endtikzpicture deals with layerlist:
 \expandafter\pgfutil@in@\expandafter\pgf@remember@layerlist@globally\expandafter{\endtikzpicture}%
