@@ -66,6 +66,7 @@ compile: images $(TEXFILE)
 	  pdflatex \
 	    --jobname everything \
 	    --shell-escape \
+	     -synctex=-1 \
 	    '\def\enabletikztension{} \input{$(TEXFILE:.tex=)}' && \
 	  mv everything.pdf success.pdf && \
 	  (bibtex everything.aux || true) && \
@@ -81,7 +82,11 @@ compile: images $(TEXFILE)
 	  done && \
 	  echo "" >> $(TIKZDEPFILE) \
 	) && \
-	mv $(TMPDIR)/success.pdf $(TEXFILE:.tex=.pdf) \
+	( \
+	  mv $(TMPDIR)/success.pdf $(TEXFILE:.tex=.pdf); \
+	  cat $(TMPDIR)/everything.synctex | sed 's/$(TMPDIR)/./g' > $(TEXFILE:.tex=.synctex); \
+	  mv $(TMPDIR)/everything.log $(TEXFILE:.tex=.log); \
+	) \
 	|| \
 	rm $(TMPDIR)/$(TIKZDEPFILE)
 
@@ -156,3 +161,5 @@ clean:
 	rm -rf $(TMPDIR)
 	rm -rf $(EXPDIR)
 	rm -f $(PDFFILE)
+	rm -f $(PDFFILE:.pdf=.log)
+	rm -f $(PDFFILE:.pdf=.synctex)
