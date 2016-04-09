@@ -16,29 +16,29 @@ SKETCH_BIN=sketch
 PDFFILE=$(TEXFILE:.tex=.pdf)
 
 # temporary directory for tex-compilation
-TMPDIR=.tmp
+TEMPDIR=.tmp
 
 # externalization directory (for journal publication)
 EXPDIR=.export
 
 # wildcards for files that are not supposed to be exported
-NOPSEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.pdf *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README* ./build ./$(TMPDIR) $(EXPORT_EXCLUDE) ./$(TEXFILE:.tex=.pdf)
-NOPDFEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.eps *.ps *.txt *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README* ./build ./$(TMPDIR) $(EXPORT_EXCLUDE) ./$(TEXFILE:.tex=.pdf)
+NOPSEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.pdf *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README* ./build ./$(TEMPDIR) $(EXPORT_EXCLUDE) ./$(TEXFILE:.tex=.pdf)
+NOPDFEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.eps *.ps *.txt *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README* ./build ./$(TEMPDIR) $(EXPORT_EXCLUDE) ./$(TEXFILE:.tex=.pdf)
 
 # tex-generated list of tikz images in the target pdf
 TIKZDEPFILE=tikz.dep
 
 # additionaly search these dirs for prerequisites
-VPATH=$(COMMONDIR):$(EXPDIR):$(TMPDIR)
+VPATH=$(COMMONDIR):$(EXPDIR):$(TEMPDIR)
 
 # tex include paths
 TEXINPUTS=$(BUILDSYSTEMDIR)/include//
 
 prepare-tmpdir=\
-  mkdir -p $(TMPDIR); \
-  rsync --safe-links -ru $(BUILDSYSTEMDIR)/* $(TMPDIR); \
-  rsync --safe-links -ru $(COMMONDIR)/* $(TMPDIR); \
-  rsync --safe-links -ru * $(TMPDIR)
+  mkdir -p $(TEMPDIR); \
+  rsync --safe-links -ru $(BUILDSYSTEMDIR)/* $(TEMPDIR); \
+  rsync --safe-links -ru $(COMMONDIR)/* $(TEMPDIR); \
+  rsync --safe-links -ru * $(TEMPDIR)
 
 prepare-psexpdir=\
   mkdir -p $(EXPDIR); \
@@ -48,7 +48,7 @@ prepare-psexpdir=\
 
 prepare-pdfexpdir=\
   mkdir -p $(EXPDIR); \
-  rsync -ru $(TMPDIR)/* $(EXPDIR); \
+  rsync -ru $(TEMPDIR)/* $(EXPDIR); \
   mv $(EXPDIR)/include/* $(EXPDIR); \
   rsync --safe-links -ru * $(EXPDIR)
 
@@ -56,12 +56,12 @@ default: view
 
 .PHONY:
 images:
--include $(TMPDIR)/$(TIKZDEPFILE)
+-include $(TEMPDIR)/$(TIKZDEPFILE)
 
 compile: images $(TEXFILE)
 	$(call prepare-tmpdir)
 	( \
-	  cd $(TMPDIR) && \
+	  cd $(TEMPDIR) && \
 	  TEXINPUTS=.:..:$(BUILDSYSTEMDIR):$(COMMONDIR):$(TEXINPUTS): \
 	  pdflatex \
 	    --jobname everything \
@@ -83,12 +83,12 @@ compile: images $(TEXFILE)
 	  echo "" >> $(TIKZDEPFILE) \
 	) && \
 	( \
-	  mv $(TMPDIR)/success.pdf $(TEXFILE:.tex=.pdf); \
-	  cat $(TMPDIR)/everything.synctex | sed 's/$(TMPDIR)/./g' > $(TEXFILE:.tex=.synctex); \
-	  mv $(TMPDIR)/everything.log $(TEXFILE:.tex=.log); \
+	  mv $(TEMPDIR)/success.pdf $(TEXFILE:.tex=.pdf); \
+	  cat $(TEMPDIR)/everything.synctex | sed 's/$(TEMPDIR)/./g' > $(TEXFILE:.tex=.synctex); \
+	  mv $(TEMPDIR)/everything.log $(TEXFILE:.tex=.log); \
 	) \
 	|| \
-	rm $(TMPDIR)/$(TIKZDEPFILE)
+	rm $(TEMPDIR)/$(TIKZDEPFILE)
 
 view: compile
 	@ if pgrep -l -f "$(PDFVIEWER) $(PDFFILE)" | grep $(PDFVIEWER) >/dev/null; \
@@ -105,7 +105,7 @@ psexport: compile epsimages
 	# overwrite tikz-includes
 	cp $(BUILDSYSTEMDIR)/export/* $(EXPDIR)/include/
 	# copy bibtex file there
-	cp $(TMPDIR)/everything.bbl $(EXPDIR)/$(subst .tex,.bbl,$(TEXFILE))
+	cp $(TEMPDIR)/everything.bbl $(EXPDIR)/$(subst .tex,.bbl,$(TEXFILE))
 	# remove all files that are not supposed to be exported
 	( \
 	  cd $(EXPDIR) && \
@@ -135,7 +135,7 @@ pdfexport: compile
 %.pdf:
 	$(call prepare-tmpdir)
 	-( \
-	  cd $(TMPDIR) && \
+	  cd $(TEMPDIR) && \
 	  TEXINPUTS=.:..:$(BUILDSYSTEMDIR):$(COMMONDIR):$(TEXINPUTS): \
 	  pdflatex \
 	    --jobname $(subst .pdf,,$@) \
@@ -147,7 +147,7 @@ pdfexport: compile
 %.tikz.tex:%.sk
 	$(call prepare-tmpdir)
 	( \
-	  cd $(TMPDIR) && \
+	  cd $(TEMPDIR) && \
 	  $(SKETCH_BIN) -b -o $@ $(subst .tikz.tex,.sk,$@) \
 	)
 
@@ -158,7 +158,7 @@ pdfexport: compile
 	ps2eps -f $(subst .eps,.ps,$(EXPDIR)/$@)
 
 clean:
-	rm -rf $(TMPDIR)
+	rm -rf $(TEMPDIR)
 	rm -rf $(EXPDIR)
 	rm -f $(PDFFILE)
 	rm -f $(PDFFILE:.pdf=.log)
