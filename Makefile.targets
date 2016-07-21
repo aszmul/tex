@@ -64,6 +64,7 @@ compile: images $(TEXFILE)
 	  cd $(TEMPDIR) && \
 	  TEXINPUTS=.:..:$(BUILDSYSTEMDIR):$(COMMONDIR):$(TEXINPUTS): \
 	  pdflatex \
+	    -halt-on-error \
 	    --jobname everything \
 	    --shell-escape \
 	     -synctex=-1 \
@@ -138,6 +139,7 @@ pdfexport: compile
 	  cd $(TEMPDIR) && \
 	  TEXINPUTS=.:..:$(BUILDSYSTEMDIR):$(COMMONDIR):$(TEXINPUTS): \
 	  pdflatex \
+	    -halt-on-error \
 	    --jobname $(subst .pdf,,$@) \
 	    --shell-escape \
 	    '\def\enabletikztension{} \input{$(TEXFILE:.tex=)}' \
