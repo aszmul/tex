@@ -1,0 +1,123 @@
+\mode<presentation>
+
+\RequirePackage{tikz}
+\RequirePackage{iftex}
+\RequirePackage{fontspec}
+
+\definecolor{cremi_pink}{HTML}{FF0088}
+\definecolor{cremi_grey}{HTML}{666666}
+\definecolor{cremi_lightgrey}{HTML}{eeeeee}
+
+\setsansfont[
+  Ligatures=TeX,
+  Extension=.otf,
+  BoldFont=*SemiBold,
+  ]{Montserrat}
+
+\setbeamercolor{title page}{fg=white}
+\setbeamercolor{frametitle}{fg=white,bg=cremi_pink}
+\setbeamercolor{normal text}{fg=cremi_grey, bg=}
+\setbeamercolor{footline}{bg=white, fg=cremi_pink}
+\setbeamercolor{section in toc}{fg=cremi_pink}
+\setbeamercolor{block title}{fg=white,bg=cremi_grey}
+\setbeamercolor{block body}{fg=cremi_grey,bg=cremi_lightgrey}
+
+\setbeamerfont{title}{size=\LARGE,series=\bfseries}
+\setbeamerfont{author}{size=\tiny}
+\setbeamerfont{institute}{size=\tiny}
+\setbeamerfont{date}{size=\tiny}
+\setbeamerfont{frametitle}{size=\LARGE}
+\setbeamerfont{block title}{series=\bfseries}
+
+\setbeamertemplate{title page}{%
+  \usebeamercolor{title page}%
+  \begin{tikzpicture}%
+    \useasboundingbox (1,0) rectangle (\the\paperwidth,\the\paperheight);
+    \node[
+      align=center,
+      font=\usebeamerfont{title},
+      fill=cremi_pink,
+      minimum width=\the\paperwidth,
+      outer sep=0]
+      (title) at (6.4, 6.5)
+      {\inserttitle};
+    \node[
+      align=center,
+      font=\usebeamerfont{subtitle},
+      fill=cremi_pink,
+      minimum width=\the\paperwidth,
+      anchor=north,
+      outer sep=0]
+      (subtitle)
+      at (title.south)
+      {\insertsubtitle};
+    \node[
+      align=center,
+      font=\usebeamerfont{author},
+      color=cremi_pink,
+      fill=white,
+      minimum width=\the\paperwidth,
+      anchor=north,
+      outer sep=0]
+      (author)
+      at (subtitle.south)
+      {\insertauthor};
+    \node[
+      align=center,
+      font=\usebeamerfont{institute},
+      color=cremi_pink,
+      fill=white,
+      minimum width=\the\paperwidth,
+      below of=author,
+      anchor=north,
+      outer sep=0]
+      {\insertinstitute};
+    \node[
+      align=center,
+      font=\usebeamerfont{date},
+      color=cremi_grey,
+      fill=white,
+      minimum width=\the\paperwidth,
+      anchor=south,
+      outer sep=0]
+      (date) at (6.4, 0)
+      {\insertdate};
+  \end{tikzpicture}
+}
+
+\setbeamertemplate{background}{%
+  \begin{tikzpicture}%
+    \useasboundingbox (current page.south west) rectangle (current page.north east);
+    \node[anchor=south west,inner sep=0] at (0,0) {\includegraphics[width=\the\paperwidth,keepaspectratio]{beamerthemecremi}};%
+    \ifnum\c@framenumber>1%
+      \draw[fill=white,draw=white] ($(current page.south west)+(0.5,0.5)$) rectangle ($(current page.north east)-(0.5,1)$);
+    \fi%
+  \end{tikzpicture}%
+}
+
+\setbeamertemplate{footline}{%
+  \leavevmode\hbox{%
+    \ifnum\c@framenumber>1%
+      \begin{beamercolorbox}[wd=0.3\paperwidth,ht=0.25cm,dp=1ex,left]{footline}%
+        \usebeamerfont{footline}%
+        \hspace*{2ex}\insertshorttitle%
+      \end{beamercolorbox}%
+      \begin{beamercolorbox}[wd=0.4\paperwidth,ht=0.25cm,dp=1ex,center]{footline}%
+        \usebeamerfont{footline}%
+        \hspace*{2ex}\insertshortauthor%
+      \end{beamercolorbox}%
+      \begin{beamercolorbox}[wd=0.3\paperwidth,ht=0.25cm,dp=1ex,right]{footline}%
+        \usebeamerfont{footline}%
+        \insertframenumber{}/\inserttotalframenumber\hspace*{2ex}%
+      \end{beamercolorbox}%
+    \else% title frame
+      \begin{beamercolorbox}[wd=\paperwidth,ht=0.25cm,dp=1ex,left]{}%
+          % empty, just to raise height
+      \end{beamercolorbox}
+    \fi%
+  }%
+}
+
+\setbeamertemplate{itemize items}{%
+  \tikz{\node[circle,minimum width=3pt,inner sep=0,fill=cremi_grey]{};\node[inner sep=0,outer sep=0] at (0,-0.08){};}%
+}

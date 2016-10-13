@@ -21,6 +21,9 @@ TEMPDIR=.tmp
 # externalization directory (for journal publication)
 EXPDIR=.export
 
+# which latex binary to use
+LATEX?=pdflatex
+
 # wildcards for files that are not supposed to be exported
 NOPSEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.pdf *.ps *.txt *.png *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README* ./build ./$(TEMPDIR) $(EXPORT_EXCLUDE) ./$(TEXFILE:.tex=.pdf)
 NOPDFEXPORT=./Makefile* *.swp *.bib *.blg *.dep *.aux *.log *.dvi *.eps *.ps *.txt *.tikz.tex *.sk *.dat *.inc ./export/* ./pgf/* ./pgfplots/* ./README* ./build ./$(TEMPDIR) $(EXPORT_EXCLUDE) ./$(TEXFILE:.tex=.pdf)
@@ -63,7 +66,9 @@ compile: images $(TEXFILE)
 	( \
 	  cd $(TEMPDIR) && \
 	  TEXINPUTS=.:..:$(BUILDSYSTEMDIR):$(COMMONDIR):$(TEXINPUTS): \
-	  pdflatex \
+	  TTFONTS=$(BUILDSYSTEMDIR)/fonts/: \
+	  OPENTYPEFONTS=$(BUILDSYSTEMDIR)/fonts/: \
+	  $(LATEX) \
 	    -halt-on-error \
 	    --jobname everything \
 	    --shell-escape \
@@ -138,7 +143,9 @@ pdfexport: compile
 	-( \
 	  cd $(TEMPDIR) && \
 	  TEXINPUTS=.:..:$(BUILDSYSTEMDIR):$(COMMONDIR):$(TEXINPUTS): \
-	  pdflatex \
+	  TTFONTS=$(BUILDSYSTEMDIR)/fonts/: \
+	  OPENTYPEFONTS=$(BUILDSYSTEMDIR)/fonts/: \
+	  $(LATEX) \
 	    -halt-on-error \
 	    --jobname $(subst .pdf,,$@) \
 	    --shell-escape \
