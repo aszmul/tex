@@ -89,12 +89,12 @@ compile: images $(TEXFILE)
 	  echo "" >> $(TIKZDEPFILE) \
 	) && \
 	( \
-	  mv $(TEMPDIR)/success.pdf $(TEXFILE:.tex=.pdf); \
-	  cat $(TEMPDIR)/everything.synctex | sed 's/$(TEMPDIR)/./g' > $(TEXFILE:.tex=.synctex); \
-	  mv $(TEMPDIR)/everything.log $(TEXFILE:.tex=.log); \
+	  mv $(TEMPDIR)/success.pdf $(TEXFILE:.tex=.pdf) && \
+	  cat $(TEMPDIR)/everything.synctex | sed 's/$(TEMPDIR)/./g' > $(TEXFILE:.tex=.synctex) && \
+	  mv $(TEMPDIR)/everything.log $(TEXFILE:.tex=.log) \
 	) \
 	|| \
-	rm $(TEMPDIR)/$(TIKZDEPFILE)
+	(rm $(TEMPDIR)/$(TIKZDEPFILE) && false)
 
 view: compile
 	@ if pgrep -l -f "$(PDFVIEWER) $(PDFFILE)" | grep $(PDFVIEWER) >/dev/null; \
