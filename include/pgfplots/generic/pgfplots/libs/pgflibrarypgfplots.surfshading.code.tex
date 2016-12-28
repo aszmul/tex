@@ -283,6 +283,13 @@
 	\pgfplotslibrarysurfstreamend@set@BB
 }
 
+\def\pgfplotslibrarysurfdraw{%
+	\ifx\pgfplotslibrarysurf@binarystream\pgfutil@empty
+	\else
+		\pgfplotslibrarysurfdraw@sys
+	\fi
+}%
+
 \def\pgfplotslibrarysurfstreamend@set@BB{%
 	\xdef\pgfplotslibrarysurf@corner@sw{%
 		\global\pgf@x=\the\pgf@pathminx\space
@@ -353,7 +360,7 @@
 		\edef\pgfplots@loc@TMPa{#1}%
 		\def\pgfplotsretval{}%
 		\expandafter\pgfplotslibrarysurf@encode@cdata@loop\pgfplots@loc@TMPa,,%
-		\let\pgfplotsbinaryresult=\pgfplotsretval
+		\global\let\pgfplotsbinaryresult=\pgfplotsretval
 	\fi
 }
 
@@ -623,7 +630,7 @@
 	\input pgflibrarypgfplots.surfshading.\pgfsysdriver\relax
 	\def\pgflibrarysurfshadingifactive#1#2{#1}%
 }{%
-	\def\pgfplotslibrarysurfdraw{%
+	\def\pgfplotslibrarysurfdraw@sys{%
 		\pgfplots@error{Sorry, surfshading (shader=interp) is NOT available for the selected driver `\pgfsysdriver'.}%
 	}%
 	\def\pgflibrarysurfshadingifactive#1#2{#2}%

@@ -15,7 +15,6 @@ local type=type
 local tostring=tostring
 local error=error
 local table=table
-local pgfmathparse = pgfplots.pgfluamathparser.pgfmathparse
 
 do
 -- all globals will be read from/defined in pgfplots:
@@ -54,8 +53,6 @@ function Coord:__tostring()
     end
     return result
 end
-
-local stringToFunctionMap = pgfluamathfunctions.stringToFunctionMap
 
 -- a reference to a Coord which is returned by math expressions involving 'x', 'y', or 'z'
 -- see surveystart()
@@ -148,8 +145,13 @@ function Plothandler:constructor(name, axis, pointmetainputhandler)
     self.pointmetamap = nil -- will be set later
     self.filteredCoordsAway = false
     self.plotHasJumps = false
+	self.hasUnboundedPointMeta = false
 	-- will be set before the visualization phase starts. At least.
 	self.plotIs3d = false
+
+	-- do not use the global one. It may be outdated.
+	self.stringToFunctionMap = pgfluamathfunctions.stringToFunctionMap
+
     return self
 end
 
@@ -173,6 +175,7 @@ function Plothandler:addSurveyedPoint(pt)
     -- log("addSurveyedPoint(" .. tostring(pt) .. ") ...\n")
 end
 
+
 -- PRIVATE
 --
 -- assigns the point meta value by means of the PointMetaHandler
@@ -186,7 +189,7 @@ end
 --
 -- updates point meta limits
 function Plothandler:setperpointmetalimits(pt)
-    if pt.meta ~= nil then
+    if self.pointmetainputhandler ~= nil and self.pointmetainputhandler:isPointMetaBounded(pt.meta) then
         if not type(pt.meta) == 'number' then error("got unparsed input "..tostring(pt)) end
         if self.autocomputeMetaMin then
             self.metamin = math.min(self.metamin, pt.meta )
@@ -195,18 +198,21 @@ function Plothandler:setperpointmetalimits(pt)
         if self.autocomputeMetaMax then
             self.metamax = math.max(self.metamax, pt.meta )
         end
+	else
+		-- FIXME : the TeX code also checks for 'bounded point meta' if there is no point meta input!?
+		self.hasUnboundedPointMeta = true
     end
 end
 
 -- @see \pgfplotsplothandlersurveystart
 function Plothandler:surveystart()
-	stringToFunctionMap["x"] = pseudoconstant_x
-	stringToFunctionMap["y"] = pseudoconstant_y
-	stringToFunctionMap["z"] = pseudoconstant_z
-	stringToFunctionMap["rawx"] = pseudoconstant_rawx
-	stringToFunctionMap["rawy"] = pseudoconstant_rawy
-	stringToFunctionMap["rawz"] = pseudoconstant_rawz
-	stringToFunctionMap["meta"] = pseudoconstant_meta
+	self.stringToFunctionMap["x"] = pseudoconstant_x
+	self.stringToFunctionMap["y"] = pseudoconstant_y
+	self.stringToFunctionMap["z"] = pseudoconstant_z
+	self.stringToFunctionMap["rawx"] = pseudoconstant_rawx
+	self.stringToFunctionMap["rawy"] = pseudoconstant_rawy
+	self.stringToFunctionMap["rawz"] = pseudoconstant_rawz
+	self.stringToFunctionMap["meta"] = pseudoconstant_meta
 end
 
 -- @see \pgfplotsplothandlersurveyend
@@ -490,6 +496,25 @@ function PointMetaHandler.assign(pt)
     error("This instance of PointMetaHandler is not implemented")
 end
 
+-- see \pgfplotsifpointmetaisbounded
+function PointMetaHandler:isPointMetaBounded(meta)
+	if meta == nil then
+		return false
+	end
+
+	if self.isSymbolic then
+		if meta == "" then
+			return false
+		else
+			return true
+		end
+
+	else
+		-- check the number:
+		return pgfplotsmath.isfinite(meta)
+	end
+end
+
 
 -- A PointMetaHandler which merely acquires values of either x,y, or z.
 CoordAssignmentPointMetaHandler = newClassExtends( PointMetaHandler )
@@ -531,7 +556,7 @@ function ExpressionPointMetaHandler:constructor(expression)
 end
 
 function ExpressionPointMetaHandler:assign(pt)
-	pt.meta = pgfmathparse(self.expression)
+	pt.meta = pgfluamathparser.pgfmathparse(self.expression)
 	if not pt.meta then
 		error("point meta=" .. self.expression .. ": expression has been rejected.")
     end
@@ -660,7 +685,7 @@ function Axis:filtercoord(dir, ptCoords, filterExpressionByDir)
 		end
 		local old = updatePseudoConstants(ptCoords)
 
-		result = pgfmathparse(filterExpressionByDir[dir])
+		result = pgfluamathparser.pgfmathparse(filterExpressionByDir[dir])
 
 		updatePseudoConstants(old)
 	end
@@ -853,16 +878,20 @@ function Axis:datapointsurveyed(pt, plothandler)
                     log("NOTE: coordinate " .. tostring(pt) .. " has been dropped because " .. reason .. "\n")
                 end
             else
-                plothandler.plotHasJumps = true
-
-                local serialized = self:addVisualizationDependencies(pt)
-                plothandler:addSurveyedPoint(serialized)
+				self:addSurveyedJump(plothandler, pt)
             end
         end
     end
     
     -- note that the TeX variant would increase the coord index here.
     -- We do it it surveypoint.
+end
+
+function Axis:addSurveyedJump(plothandler, pt)
+	plothandler.plotHasJumps = true
+
+	local serialized = self:addVisualizationDependencies(pt)
+	plothandler:addSurveyedPoint(serialized)
 end
 
 local function axisLimitToTeXString(name, value)
@@ -936,6 +965,13 @@ function Axis:surveyToPgfplots(plothandler)
 	else
 		result = result ..
 		"\\def\\pgfplotsaxisplothasjumps{0}"
+	end
+    if plothandler.hasUnboundedPointMeta then 
+		result = result ..
+		"\\def\\pgfplotsaxisplothasunboundedpointmeta{1}"
+	else
+		result = result ..
+		"\\def\\pgfplotsaxisplothasunboundedpointmeta{0}"
 	end
     if plothandler.filteredCoordsAway then 
 		result = result ..

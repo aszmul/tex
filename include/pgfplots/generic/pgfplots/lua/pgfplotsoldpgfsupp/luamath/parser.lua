@@ -19,7 +19,7 @@
 -- with the deployment of this patch or partial content of PGF. Note that the author and/or maintainer of pgfplots has no obligation to fix anything:
 -- This file comes without any warranty as the rest of pgfplots; there is no obligation for help.
 ----------------------------------------------------------------------------------------------------
--- Date of this copy: Mi 14. Jan 21:15:32 CET 2015 ---
+-- Date of this copy: Mi 6. Jan 11:32:04 CET 2016 ---
 
 
 
@@ -33,7 +33,7 @@
 --
 -- See the file doc/generic/pgf/licenses/LICENSE for more details.
 --
--- $Id: parser.lua,v 1.1 2014/12/27 14:11:49 cfeuersaenger Exp $	
+-- $Id: parser.lua,v 1.3 2015/11/28 17:20:49 cfeuersaenger Exp $	
 --
 -- usage:
 --
@@ -73,7 +73,7 @@ local integer_pattern = S("+-")^-1 * positive_integer_pattern
 local positive_integer_or_decimal_pattern = positive_integer_pattern * ( P(".") * one_digit_pattern^0)^-1 + 
                                  (P(".") * one_digit_pattern^1) 
 local integer_or_decimal_pattern = S("+-")^-1 * positive_integer_or_decimal_pattern 
-local fpu_pattern = R"15" * P"Y" * positive_integer_or_decimal_pattern * P"e" * P("-")^-1 * R("09")^1 * P"]"
+local fpu_pattern = R"05" * P"Y" * positive_integer_or_decimal_pattern * P"e" * S("+-")^-1 * R("09")^1 * P"]"
 local unbounded_pattern = P"inf" + P"INF" + P"nan" + P"NaN" + P"Inf"
 local number_pattern = C(unbounded_pattern + fpu_pattern + integer_or_decimal_pattern * (S"eE" * integer_pattern + C(tex_unit))^-1)
 
@@ -102,7 +102,8 @@ local comma_pattern = P(",") * space_pattern
 
 ----------------
 local TermOp = C(S("+-")) * space_pattern
-local RelationalOp = C( P"==" + P"!=" + P"<=" + P">=" + P"<" + P">" ) * space_pattern
+local EqualityOp = C( P"==" + P"!=" ) * space_pattern
+local RelationalOp = C( P"<=" + P">=" + P"<" + P">" ) * space_pattern
 local FactorOp = C(S("*/")) * space_pattern
 
 -- Grammar
@@ -195,11 +196,18 @@ local function postfix_eval(prefix, op, arg)
 	return result
 end
 
-local function relational_eval(v1, op, v2)
+local function equality_eval(v1, op, v2)
 	local fct
 	if (op == "==") then fct = pgfluamathfunctions.equal
 	elseif (op == "!=") then fct = pgfluamathfunctions.notequal
-	elseif (op == "<") then fct = pgfluamathfunctions.less
+	else
+		error("This function must not be invoked for operator "..op)
+	end
+	return fct(v1,v2)
+end
+local function relational_eval(v1, op, v2)
+	local fct
+	if (op == "<") then fct = pgfluamathfunctions.less
 	elseif (op == ">") then fct = pgfluamathfunctions.greater
 	elseif (op == ">=") then fct = pgfluamathfunctions.notless
 	elseif (op == "<=") then fct = pgfluamathfunctions.notgreater
@@ -289,6 +297,7 @@ local initialRule = V"initial"
 
 local Summand = V"Summand"
 local Relational = V"Relational"
+local Equality = V"Equality"
 local LogicalOr = V"LogicalOr"
 local LogicalAnd = V"LogicalAnd"
 
@@ -324,11 +333,11 @@ local G = P{ "initialRule",
 	initialRule = space_pattern* Exp * -1;
 	-- ternary operator (or chained ternary operators):
 	-- FIXME : is this chaining a good idea!?
-	Exp = Cf( Relational * Cg(P"?" * space_pattern * Relational * P":" *space_pattern * Relational )^0, ternary_eval) ;
-	-- FIXME : do we really allow something like " 1 == 1 != 2" ? I would prefer (1==1) != 2 !?
-	Relational = Cf(LogicalOr * Cg(RelationalOp * LogicalOr)^0, relational_eval);
+	Exp = Cf( LogicalOr * Cg(P"?" * space_pattern * LogicalOr * P":" *space_pattern * LogicalOr )^0, ternary_eval) ;
 	LogicalOr = Cf(LogicalAnd * (P"||" * space_pattern * LogicalAnd)^0, pgfluamathfunctions.orPGF);
-	LogicalAnd = Cf(Summand * (P"&&" * space_pattern * Summand)^0, pgfluamathfunctions.andPGF);
+	LogicalAnd = Cf(Equality * (P"&&" * space_pattern * Equality)^0, pgfluamathfunctions.andPGF);
+	Equality = Cf(Relational * Cg(EqualityOp * Relational)^0, equality_eval);
+	Relational = Cf(Summand * Cg(RelationalOp * Summand)^0, relational_eval);
 	Summand = Cf(Term * Cg(TermOp * Term)^0, eval) ;
 	Term = Cf(Prefix * Cg(FactorOp * Prefix)^0, eval);
 	Prefix = prefix_operator_pattern + Postfix;

@@ -1180,6 +1180,8 @@
 % vector (if there is one known). If there is no such value,
 % \pgfplotsretval will be empty.
 % #1 a three-character-string
+%
+% see \pgfplotspointouternormalvectorofaxissetv
 \def\pgfplotspointouternormalvectorofaxisgetv#1{%
 	\edef\pgfplots@loc@TMPa{#1}%
 	\expandafter\pgfplotspointouternormalvectorofaxisgetv@\pgfplots@loc@TMPa\relax\relax\relax\relax
@@ -1339,9 +1341,13 @@
 % #4: the argument supplied as coordinate on that axis.
 % #5: the shift along the outer unit normal.
 \def\pgfplotspointoutsideofaxis@#1#2#3\relax#4#5{%
+	%
+	\def\pgfplotspointoutsideofaxis@lineshift{}%
+	%
 	\if v#1%
 		\pgfplotspointoutsideofaxis@plug@getlimit{y}{#2}\let\pgfplots@loc@TMPa=\pgfmathresult
 		\pgfplotspointonorientedsurfaceabsetupforsety{\pgfplots@loc@TMPa}{#2}%
+		\def\pgfplotspointoutsideofaxis@lineshift{x}%
 		%
 		\pgfplotspointonorientedsurfaceabsetupfor xzy%
 		\pgfplotspointoutsideofaxis@plug@trafo{x}{#4}\let\pgfplots@loc@A=\pgfmathresult
@@ -1362,6 +1368,7 @@
 			\pgfplotspointonorientedsurfaceabsetupfor yxz%
 			\pgfplotspointoutsideofaxis@plug@trafo{y}{#4}\let\pgfplots@loc@A=\pgfmathresult
 			\pgfplotspointoutsideofaxis@plug@getlimit{x}{#1}\let\pgfplots@loc@B=\pgfmathresult
+			\def\pgfplotspointoutsideofaxis@lineshift{y}%
 		\else
 			\pgfplotspointoutsideofaxis@plug@getlimit{x}{#1}\let\pgfplots@loc@TMPa=\pgfmathresult
 			\pgfplotspointonorientedsurfaceabsetupforsetx{\pgfplots@loc@TMPa}{#1}%
@@ -1373,12 +1380,20 @@
 				\def\pgfplots@loc@A{0}%
 			\fi
 			\pgfplotspointoutsideofaxis@plug@getlimit{y}{#2}\let\pgfplots@loc@B=\pgfmathresult
+			\def\pgfplotspointoutsideofaxis@lineshift{z}%
 		\fi
 	\fi
 	%
 	% read dimen argument #5:
 	\afterassignment\pgfplots@gobble@until@relax
 	\pgf@xa=#5pt\relax
+	%
+	\pgfkeysgetvalue{/pgfplots/axis \pgfplotspointoutsideofaxis@lineshift\space line shift}\pgfmathresult
+	\ifx\pgfmathresult\pgfutil@empty
+	\else
+		\advance\pgf@xa by \pgfmathresult pt %
+	\fi
+	%
 	\edef\pgfplots@loc@distalong@normal{\pgf@sys@tonumber\pgf@xa}%
 	%
 %\message{pgfplotspointoutsideofaxis{#1#2#3}{#4}{#5}: A = \pgfplots@loc@A, B = \pgfplots@loc@B.^^J}%
@@ -1484,6 +1499,9 @@
 	/pgfplots/sloped/execute for upside down/.initial=,
 	/pgfplots/sloped/reset nontranslations/.is if=pgfplots@sloped@resets@nontranslations,
 	/pgfplots/sloped/reset nontranslations/.default=true,
+	%
+	% only used by polar axes at the time of this writing:
+	/pgfplots/sloped/at position/.initial=,
 }
 % Installs a rotation transformation matrix such that labels or
 % whatever are aligned precisely in direction of one of the two/three
@@ -1641,6 +1659,16 @@
 	% and the anchors of the node, I have to invert the matrix:
 	\pgftransforminvert
 	%
+	\pgfplotspointouternormalvectorofaxisgetv{#2}%
+	\ifx\pgfplotsretval\pgfutil@empty
+		\pgfkeysgetvalue{/pgfplots/near ticklabel at}\pgfplotsretval
+		\ifx\pgfplotsretval\pgfutil@empty
+		\else
+			% ah - we have one!
+			\csname pgfplotstransformcoordinate#1\endcsname{\pgfplotsretval}%
+			\pgfplotspointouternormalvectorofaxissetv{#2}{\pgfmathresult}%
+		\fi
+	\fi
 	%
 	% This here is the normal direction (points to the axis)
 	\pgfqpointscale{#4}{\pgfplotspointouternormalvectorofaxis{#2}}%
@@ -1901,6 +1929,16 @@
 	\pgfqkeys{/pgfplots/@declare coord math}{%
 		initialise=,
 		parse=\edef\pgfmathresult{##1}\expandafter\pgfmathparse\expandafter{\pgfmathresult},
+		parse int={%
+			\begingroup
+			\pgfplotscoordmath{\pgfplotscoordmathid}{parse}{##1}%
+			\pgfplotscoordmath{\pgfplotscoordmathid}{tofixed}{\pgfmathresult}%
+			\afterassignment\pgfplots@gobble@until@relax
+			\c@pgf@countd=\pgfmathresult\relax
+			\edef\pgfmathresult{\the\c@pgf@countd}%
+			\pgfmath@smuggleone\pgfmathresult
+			\endgroup
+		},
 		parsenumber=\pgfmathfloatparsenumber{##1}\pgfmathfloattofixed{##1},%
 		zero=		\pgfplotscoordmath{\pgfplotscoordmathid}{parsenumber}{0},
 		one=		\pgfplotscoordmath{\pgfplotscoordmathid}{parsenumber}{1},
@@ -1939,14 +1977,14 @@
 		max limit=	\def\pgfmathresult{16300},%
 		if less than=	{\pgfplotsmathlessthan{##1}{##2}\ifpgfmathfloatcomparison ##3\else ##4\fi},
 		if is=	{%
-			\if##20
-				\ifdim##1pt=0pt ##2\else ##3\fi
+			\if##20%
+				\ifdim##1pt=0pt ##3\else ##4\fi
 			\else
-				\if##2+\ifdim##1pt>0pt ##2\else ##3\fi
+				\if##2+\ifdim##1pt>0pt ##3\else ##4\fi
 				\else
-					\if##2-\ifdim##1pt<0pt ##2\else ##3\fi
+					\if##2-\ifdim##1pt<0pt ##3\else ##4\fi
 					\else
-						\def\pgfplots@loc@TMPd{##1}\ifx\pgfplots@loc@TMPd\pgfutil@empty ##2\else ##3\fi
+						\def\pgfplots@loc@TMPd{##1}\ifx\pgfplots@loc@TMPd\pgfutil@empty ##3\else ##4\fi
 					\fi
 				\fi
 			\fi
@@ -2024,6 +2062,8 @@
 	% required math library (which is not necessarily cheap)
 	parse/.code=
 		{\expandafter\def\csname pgfpmth\pgfplotsdeclarecoordmath@ parse\endcsname##1{#1}},%
+	parse int/.code=
+		{\expandafter\def\csname pgfpmth\pgfplotsdeclarecoordmath@ parse int\endcsname##1{#1}},%
 	%
 	% takes a parsed number and returns a fixed point number:
 	tofixed/.code=
@@ -2332,7 +2372,9 @@
 	parsenumber=\pgfmathfloatparsenumber{#1},
 	parse={%
 		\begingroup 
-		\pgfkeys{/pgf/fpu}%
+		\pgfkeys{/pgf/fpu,%
+			/pgf/fpu/output format=float,%
+		}%
 		\edef\pgfmathresult{#1}%
 		\expandafter\pgfmathparse\expandafter{\pgfmathresult}%
 		\pgfmath@smuggleone\pgfmathresult
@@ -2483,6 +2525,35 @@
 	\ifx\pgfplotspointmetainputhandler\pgfutil@empty #2\else #1\fi
 }%
 
+\newif\ifpgfplots@perpointmeta@expand
+
+% Executes code '#2' if the point meta data #1 is bounded
+% and '#3' otherwise
+%
+% If the point meta is symbolic, it will always return true if and
+% only if the input is non-empty.
+\def\pgfplotsifpointmetaisbounded#1#2#3{%
+	\ifpgfplots@perpointmeta@expand
+		\edef\pgfplots@loc@TMPc{#1}%
+	\else
+		% symbolic point meta may have expansion issues -- but support one
+		% level as we usually invoke it with a macro name:
+		\expandafter\def\expandafter\pgfplots@loc@TMPc\expandafter{#1}%
+	\fi
+	\ifx\pgfplots@loc@TMPc\pgfutil@empty
+		% an empty meta data is _never_ bounded.
+		#3\relax
+	\else
+		\if1\csname pgfpmeta@\pgfplotspointmetainputhandler @issymbolic\endcsname
+			% a (non-empty, see above) symbolic meta data is "bounded"
+			#2\relax
+		\else
+			% check the number:
+			\pgfplotscoordmath{meta}{if is bounded}{\pgfplots@loc@TMPc}{#2}{#3}%
+		\fi
+	\fi
+}%
+
 % Invokes '#1' if the axis contains the coordinate designated by
 % \pgfplots@current@point@[xyz] and '#2' if not.
 \def\pgfplotsaxisifcontainspoint#1#2{%
@@ -2535,14 +2606,26 @@
 % 	See the definitions below for examples.
 \def\pgfplotsdeclarepointmetasource#1#2{%
 	\expandafter\def\csname pgfpmeta@#1@assign\endcsname{\let\pgfplots@current@point@meta=\pgfutil@empty}%
-	\expandafter\def\csname pgfpmeta@#1@initfor\endcsname##1{}%
+	\expandafter\def\csname pgfpmeta@#1@initfor\endcsname##1{%
+		\pgfplots@pointmeta@set@expand{#1}%
+	}%
 	\expandafter\def\csname pgfpmeta@#1@issymbolic\endcsname{0}%
 	\expandafter\def\csname pgfpmeta@#1@explicitinput\endcsname{0}%
 	\expandafter\def\csname pgfpmeta@#1@activate\endcsname{}%
 	\expandafter\def\csname pgfpmeta@#1@LUA class\endcsname{}%
+	\expandafter\def\csname pgfpmeta@#1@tostring\endcsname{#1}%
 	\edef\pgfplotsdeclarepointmetasource@{#1}%
 	\pgfqkeys{/pgfplots/@declare point meta src}{#2}%
 }%
+
+\def\pgfplots@pointmeta@set@expand#1{%
+	\if1\csname pgfpmeta@#1@explicitinput\endcsname
+		\pgfplots@perpointmeta@expandfalse
+	\else
+		\pgfplots@perpointmeta@expandtrue
+	\fi
+}%
+
 \pgfqkeys{/pgfplots/@declare point meta src}{%
 	%
 	% 		a macro used to initialise the point meta source when it is
@@ -2611,6 +2694,9 @@
 	% there is none.
 	LUA class/.code=
 		{\expandafter\def\csname pgfpmeta@\pgfplotsdeclarepointmetasource@ @LUA class\endcsname{#1}},%
+	%
+	tostring/.code=
+		{\expandafter\def\csname pgfpmeta@\pgfplotsdeclarepointmetasource@ @tostring\endcsname{#1}},%
 }%
 
 % An empty one. This is simple to check with
@@ -2685,6 +2771,7 @@
 		}{%
 			\def\pgfpmeta@expr@LUA@class{pgfplots.ExpressionPointMetaHandler.new("#1")}%
 		}%
+		\pgfplots@perpointmeta@expandtrue
 	},
 	LUA class=\pgfpmeta@expr@LUA@class,
 }%
@@ -2713,6 +2800,7 @@
 	},%
 	initfor={%
 		\pgfkeysdef{/pgfplots/point meta/code}{#1}%
+		\pgfplots@perpointmeta@expandtrue
 	},
 }%
 \pgfplotsdeclarepointmetasource{TeX code symbolic}{%
@@ -2726,6 +2814,7 @@
 	},%
 	initfor={%
 		\pgfkeysdef{/pgfplots/point meta/code}{#1}%
+		\pgfplots@perpointmeta@expandfalse
 	},
 	issymbolic=1%
 }%
@@ -2876,7 +2965,6 @@
 	\expandafter\let\expandafter\pgfplotsscanlinelengthincrease		\csname pgfplotsscanlinelength@\pgfplots@loc@TMPa @increase\endcsname
 	\edef\pgfplotsscanlinecomplete{%
 		\expandafter\noexpand\csname pgfplotsscanlinelength@\pgfplots@loc@TMPa @complete\endcsname
-		\noexpand\pgfplotsplothandlernotifyscanlinecomplete
 	}%
 	\expandafter\let\expandafter\pgfplotsscanlinelengthcleanup		\csname pgfplotsscanlinelength@\pgfplots@loc@TMPa @cleanup\endcsname
 	\pgfplotsscanlinelength@initzero
@@ -2912,7 +3000,9 @@
 % empty line=scanline
 % class:
 \def\pgfplotsscanlinelength@scanline@initzero{%
-	\c@pgfplots@scanlineindex=0
+	\c@pgfplots@scanlineindex=0 % the index _inside_ of the current scanline
+	\def\pgfplotsscanlinecurrentlength{\the\c@pgfplots@scanlineindex}%
+	\def\pgfplotsscanlineindex{0}% 0 is the first scanline, 1 the second, and so on
 	\def\pgfplots@scanlinelength{-1}%
 }
 \def\pgfplotsscanlinelength@scanline@increase{%
@@ -2934,14 +3024,20 @@
 				% special marker which means 'inconsistent scan line length found'
 				\def\pgfplots@scanlinelength{-2}%
 			\fi
+			\pgfplotsplothandlernotifyscanlinecomplete
 		\fi
 	\else
 		\ifnum\pgfplots@scanlinelength=-2
 		\else
 			\edef\pgfplots@scanlinelength{\the\c@pgfplots@scanlineindex}%
 		\fi
+		%
+		\ifnum\c@pgfplots@scanlineindex>0
+			\pgfplotsplothandlernotifyscanlinecomplete
+		\fi
 	\fi
 	\c@pgfplots@scanlineindex=0
+	\pgfplotsutil@advancestringcounter\pgfplotsscanlineindex%
 }
 \def\pgfplotsscanlinelength@scanline@cleanup{%
 	\ifnum\c@pgfplots@scanlineindex=0
@@ -2975,20 +3071,24 @@
 	\if1\pgfplotsscanlinelength@nan@isfirst
 	\else
 		\def\pgfplotsscanlinelength@nan@pendingwork{%
-			% this will be executed when the next point has been
-			% found.
-			\def\pgfplots@current@point@x{}%
-			\def\pgfplots@current@point@y{}%
-			\def\pgfplots@current@point@z{}%
-			% simply serialize an empty point. That works -- the
-			% visualization phase checks if the coordinates are empty and
-			% visualizes them as "jump"
-			%
-			% Note that \pgfplotsplothandlersurveypoint is not a good
-			% choice here unless one employs its 'unbounded coords=jump'
-			% feature
-			\def\pgfplotsaxisplothasjumps{1}%
-			\pgfplotsaxisserializedatapoint
+			\ifpgfplots@LUA@backend@supported
+				\pgfplotsutil@directlua{pgfplots.texSurveyAddJump()}%
+			\else
+				% this will be executed when the next point has been
+				% found.
+				\def\pgfplots@current@point@x{}%
+				\def\pgfplots@current@point@y{}%
+				\def\pgfplots@current@point@z{}%
+				% simply serialize an empty point. That works -- the
+				% visualization phase checks if the coordinates are empty and
+				% visualizes them as "jump"
+				%
+				% Note that \pgfplotsplothandlersurveypoint is not a good
+				% choice here unless one employs its 'unbounded coords=jump'
+				% feature
+				\def\pgfplotsaxisplothasjumps{1}%
+				\pgfplotsaxisserializedatapoint
+			\fi
 			%
 			\let\pgfplotsscanlinelength@nan@pendingwork=\relax
 		}%
@@ -3002,6 +3102,7 @@
 
 \def\pgfplotsaxisfilteredcoordsaway{0}%
 \def\pgfplotsaxisplothasjumps{0}%
+\def\pgfplotsaxisplothasunboundedpointmeta{0}%
 \newif\ifpgfplotsaxisparsecoordinateok
 
 % Initialises 
@@ -3068,6 +3169,7 @@
 	\fi
 	\def\pgfplotsaxisfilteredcoordsaway{0}%
 	\def\pgfplotsaxisplothasjumps{0}%
+	\def\pgfplotsaxisplothasunboundedpointmeta{0}%
 	%
 	% FIXME : these macros should not be redefined! They are defined
 	% in \pgfplots@prepare@axis@API right during \begin{axis}... they
@@ -3339,24 +3441,30 @@
 		\fi
 		%
 		\edef\pgfplots@set@perpointmeta@limits{%
-			\noexpand\ifx\noexpand\pgfplots@current@point@meta\noexpand\pgfutil@empty
-			\noexpand\else
+			\noexpand\pgfplotsifpointmetaisbounded{\noexpand\pgfplots@current@point@meta}{%
 				\the\t@pgfplots@tokb
-			\noexpand\fi
-		}%
-		\def\pgfplotsaxisupdatelimitsforpointmeta##1{%
-			\begingroup
-			\def\pgfplots@current@point@meta{##1}%
-			\pgfplots@set@perpointmeta@limits
-			\endgroup
+			}{%
+				\noexpand\def\noexpand\pgfplotsaxisplothasunboundedpointmeta{1}%
+			}%
 		}%
 	\else
 		% there is no point meta:
 		\global\let\pgfplots@metamin=\pgfutil@empty
 		\global\let\pgfplots@metamax=\pgfutil@empty
-		\let\pgfplots@set@perpointmeta@limits=\relax
-		\def\pgfplotsaxisupdatelimitsforpointmeta##1{}%
+		\def\pgfplots@set@perpointmeta@limits{%
+			\pgfplotsifpointmetaisbounded{\pgfplots@current@point@meta}{%
+			}{%
+				\def\pgfplotsaxisplothasunboundedpointmeta{1}%
+			}%
+		}%
 	\fi
+}%
+
+\def\pgfplotsaxisupdatelimitsforpointmeta#1{%
+	\begingroup
+	\def\pgfplots@current@point@meta{#1}%
+	\pgfplots@set@perpointmeta@limits
+	\endgroup
 }%
 % This is the \pgfplots@coord@stream@end@ routine which is invoked by
 % \pgfplots@PREPARE@COORD@STREAM. 
@@ -3425,6 +3533,8 @@
 		% to share plot specifications between error bars and plot
 		% coordinates. Unfortunately, it is NOT sufficient to use
 		% \tikzset
+		%
+		%% FIXME : why is this here and not in the mesh plot handler!?
 		\pgfplotspreparemeshkeydefaults%
 		\pgfplots@PREPARE@COORD@STREAM@end@determinecoordsorting x%
 		\pgfplots@PREPARE@COORD@STREAM@end@determinecoordsorting y%
@@ -3464,6 +3574,7 @@
 				% Did we prepare the data within LUA? remember that!
 				\ifpgfplots@LUA@backend@supported
 					\noexpand\pgfplots@LUA@backend@supportedtrue
+					\pgfplots@LUA@backend@serialized@commands
 				\else 
 					\noexpand\pgfplots@LUA@backend@supportedfalse
 				\fi
@@ -3513,8 +3624,10 @@
 				\noexpand\def\noexpand\pgfplots@visphase@names{\pgfplots@visphase@names}%
 				\noexpand\def\noexpand\pgfplotsaxisfilteredcoordsaway{\pgfplotsaxisfilteredcoordsaway}%
 				\noexpand\def\noexpand\pgfplotsaxisplothasjumps{\pgfplotsaxisplothasjumps}%
+				\noexpand\def\noexpand\pgfplotsaxisplothasunboundedpointmeta{\pgfplotsaxisplothasunboundedpointmeta}%
 				\noexpand\pgfkeyssetvalue{/pgfplots/on layer}{\pgfkeysvalueof{/pgfplots/on layer}}%
 				\noexpand\def\noexpand\pgfplots@serialized@afterpath{\the\t@pgfplots@tokc}%
+				\noexpand\def\noexpand\pgfplots@addplot@point@meta@description@of@explicit@value{\pgfplots@addplot@point@meta@description@of@explicit@value}%
 			}%
 			{% draw command:
 				\noexpand\path%
@@ -3547,11 +3660,12 @@
 	\t@pgfplots@tokc=\expandafter{\pgfplots@addplot@survey@@optionlist,%
 		/pgfplots/.cd,/pgfplots/every axis plot post}%
 	\edef\pgfplots@addplot@survey@@optionlist{\the\t@pgfplots@tokc}%
+	\edef\pgfplots@loc@TMPa{/pgfplots/every axis plot except legend/.code=,\the\t@pgfplots@tokc}%
 	\ifpgfplots@curplot@isirrelevant
 		% for \label commands:
 		\expandafter\pgfplots@rememberplotspec@for@label\expandafter{\pgfplots@addplot@survey@@optionlist}%
 	\else
-		\expandafter\pgfplots@rememberplotspec\expandafter{\pgfplots@addplot@survey@@optionlist}%
+		\expandafter\pgfplots@rememberplotspec\expandafter{\pgfplots@loc@TMPa}%
 	\fi
 }%
 
@@ -3636,15 +3750,26 @@
 		% SURVEY -- but not during a visualization. Check that here:
 		\if m\pgfplots@colormap@access
 		\else
-			\pgfplots@LUA@survey@log@deactivation{color map access=direct not supported (yet)}%
+			\if c\pgfplots@colormap@access
+				\pgfplots@LUA@survey@log@deactivation{color map access=piecewise constant not supported (yet)}%
+			\else
+				\pgfplots@LUA@survey@log@deactivation{color map access=direct not supported (yet)}%
+			\fi
 			\pgfplots@LUA@backend@supportedfalse
 		\fi
+		\pgfplotscolormapifisuniform{\pgfkeysvalueof{/pgfplots/colormap name}}{%
+		}{%
+			% FIXME : implement LUA for non-uniform colormaps
+			\pgfplots@LUA@survey@log@deactivation{non-uniform color maps unsupported currently}%
+			\pgfplots@LUA@backend@supportedfalse
+		}%
 		%
 		\ifpgfplots@LUA@backend@supported
+			\edef\pgfplots@LUA@backend@plotnum{\pgfutil@directlua{tex.sprint(\pgfplotsHASH pgfplots.gca.plothandlers)}}%
 			\begingroup
 			\pgfkeysgetvalue{/pgfplots/point meta min}\pgfplots@loc@metamin
 			\pgfkeysgetvalue{/pgfplots/point meta max}\pgfplots@loc@metamax
-			\pgfplots@log{\pgfplots@LUA@loglevel@debug}{lua backend=true: Activating LUA backend for plot \the\pgfplots@numplots\space (type '\pgfplotsplothandlername').}%
+			\pgfplots@log{\pgfplots@LUA@loglevel@debug}{lua backend=true: Activating LUA backend for plot \the\pgfplots@numplots\space (lua \pgfplots@LUA@backend@plotnum, type '\pgfplotsplothandlername').}%
 			\edef\pgfplots@loc@TMPa{%
 				local gca = pgfplots.gca;^^J%
 				gca.min = {^^J%
@@ -3677,25 +3802,37 @@
 					"\pgfplots@loc@filter@x",^^J%
 					"\pgfplots@loc@filter@y",^^J%
 					"\pgfplots@loc@filter@z"};^^J%
-				gca.plothandlers[\the\pgfplots@numplots+1] = plothandler;^^J%
+				gca.plothandlers[\pgfplots@LUA@backend@plotnum+1]= plothandler;^^J%
 				gca.currentPlotHandler = plothandler;^^J%
 				plothandler:surveystart();^^J%
 			}%
 %\message{Executing ^^J\pgfplots@loc@TMPa^^J^^J}%
-			\directlua{\pgfplots@loc@TMPa}%
+			\pgfplotsutil@directlua{\pgfplots@loc@TMPa}%
 			\endgroup
+			\def\pgfplots@LUA@backend@serialized@commands{%
+				\noexpand\def\noexpand\pgfplots@LUA@backend@plotnum{\pgfplots@LUA@backend@plotnum}%
+			}%
+			\def\pgfplotsapplistXXpushback##1{%
+				\pgfplots@error{Illegal internal state encountered: lua backend should have been invoked at this point}%
+			}%
 		\fi
 	\fi
 }%
 
+\let\pgfplotsapplistXXpushback@orig=\pgfplotsapplistXXpushback
+
 \def\pgfplots@LUA@survey@point{%
-	\directlua{pgfplots.texSurveyPoint("\pgfplots@current@point@x","\pgfplots@current@point@y","\pgfplots@current@point@z","\pgfplots@current@point@meta")}%
+	\edef\pgfplots@loc@TMPa{pgfplots.texSurveyPoint("\pgfplots@current@point@x","\pgfplots@current@point@y","\pgfplots@current@point@z","\pgfplots@current@point@meta")}%
+	\pgfplotsutil@directlua{\pgfplots@loc@TMPa}%
+	% increase \pgfplots@current@point@coordindex:
+	\advance\c@pgfplots@coordindex by1
 }%
 
 \def\pgfplots@LUA@survey@end{%
 	% LUA defines a couple of TeX macros here...
-	\directlua{pgfplots.texSurveyEnd()}%
+	\pgfplotsutil@directlua{pgfplots.texSurveyEnd()}%
 	%
+	\let\pgfplotsapplistXXpushback=\pgfplotsapplistXXpushback@orig
 	\pgfplotsapplistXXpushback{--- acquire from LUA! --}%
 }%
 
@@ -3723,12 +3860,12 @@
 			% FIXME : what about \pgfplots@LUA@backend@failed in this context!?
 			\pgfplots@log{\pgfplots@LUA@loglevel@info}{Using 'lua backend=false' for visualization of plot \the\pgfplots@numplots\space (type '\pgfplotsplothandlername'): it has no LUA visualizer.}%
 			\expandafter\def\expandafter\pgfplots@stored@current@data\expandafter{%
-				\directlua{pgfplots.texGetSurveyedCoordsToPgfplots()}%
+				\pgfplotsutil@directlua{pgfplots.texGetSurveyedCoordsToPgfplots()}%
 			}%
 		\else
 			% visualize using LUA! ... and acquire the coordinates.
 			\expandafter\def\expandafter\pgfplots@stored@current@data\expandafter{%
-				\directlua{pgfplots.texVisualizePlot(\pgfplotsplothandlerLUAvisualizerfactory)}%
+				\pgfplotsutil@directlua{pgfplots.texVisualizePlot(\pgfplotsplothandlerLUAvisualizerfactory)}%
 			}%
 %\message{plot \plotnum: LUA backend returned \pgfplots@stored@current@data^^J}%
 			%
@@ -3970,7 +4107,10 @@
 % -> note the absence of extra braces for the deserialization!
 \def\pgfplotsaxisserializedatapointtostring{%
 	\pgfplotsplothandlerserializepointto\pgfplotsaxisserializedatapoint@val
+	\let\pgfplots@oldprotect=\protect
+	\let\protect=\noexpand
 	\pgfplotsaxisserializedatapoint@private
+	\let\protect=\pgfplots@oldprotect
 	\t@pgfplots@toka=\expandafter{\pgfplotsaxisserializedatapoint@val}%
 	\t@pgfplots@tokb=\expandafter{\pgfplotsretval}%
 	\edef\pgfplotsretval{{\the\t@pgfplots@tokb;\the\t@pgfplots@toka}}%
@@ -4258,8 +4398,21 @@
 		\else
 			\def\pgfplots@perpointmeta@unboundedwarning##1{}%
 		\fi
-		\if m\pgfplots@colormap@access
-			% colormap access=map
+		\if d\pgfplots@colormap@access
+			% colormap access=direct
+			\def\pgfplots@perpointmeta@trafo##1{%
+				\pgfplotscoordmath{meta}{if is}{##1}{u}{%
+					\pgfplotscolorzero{\pgfplotscolormapcolorcompsof{\pgfkeysvalueof{/pgfplots/colormap name}}}%
+					\pgfplots@perpointmeta@unboundedwarning{##1}%
+				}{%
+					\pgfplotscoordmath{meta}{tofixed}{##1}%
+					\pgfplotscolormapgetindex{\pgfmathresult}{\pgfkeysvalueof{/pgfplots/colormap name}}%
+				}%
+			}%
+			\def\pgfplots@perpointmeta@traforange{0:0}%
+			\edef\pgfplotspointmetarange{\pgfplots@metamin:\pgfplots@metamax}%
+		\else
+			% colormap access=map|piecewise constant
 			\ifx\pgfplots@metamax\pgfutil@empty
 				\def\pgfplots@perpointmeta@trafo##1{%
 					\pgfplotscoordmath{meta}{if is}{##1}{u}
@@ -4285,18 +4438,6 @@
 					\pgfplots@perpointmeta@preparetrafo@initfrom{pgfplots@}%
 				\fi
 			\fi
-		\else
-			% colormap access=direct
-			\def\pgfplots@perpointmeta@trafo##1{%
-				\pgfplotscoordmath{meta}{if is}{##1}{u}{%
-					\def\pgfmathresult{0}%
-					\pgfplots@perpointmeta@unboundedwarning{##1}%
-				}{%
-					\pgfplotscoordmath{meta}{tofixed}{##1}%
-				}%
-			}%
-			\def\pgfplots@perpointmeta@traforange{0:0}%
-			\edef\pgfplotspointmetarange{\pgfplots@metamin:\pgfplots@metamax}%
 		\fi
 		\edef\pgfplotspointmetatransformedrange{\pgfplots@perpointmeta@traforange}%
 	}{}%
@@ -4314,7 +4455,7 @@
 	\ifpgfplots@LUA@backend@supported
 		\def\pgfplots@perpointmeta@trafo##1{%
 			\edef\pgfmathresult{%
-				\directlua{%
+				\pgfplotsutil@directlua{%
 					pgfplots.texPerpointMetaTrafo("\pgfplots@current@point@meta")
 				}%
 			}%
@@ -4396,7 +4537,15 @@
 	\else
 		% numeric point meta may NOT be empty.
 		\ifx\pgfplots@current@point@meta\pgfutil@empty%
-			\pgfplots@error{could not access the 'point meta' (used for example by scatter plots and color maps). Maybe you need to add '\string\addplot[point meta=y]' or something like that?}%
+			\pgfplots@error{%
+				could not access the 'point meta=\csname pgfpmeta@\pgfplotspointmetainputhandler @tostring\endcsname' for coordinate \the\c@pgfplots@coordindex: %
+				its value is empty. %
+				\if1\csname pgfpmeta@\pgfplotspointmetainputhandler @explicitinput\endcsname%
+					\pgfplots@addplot@point@meta@description@of@explicit@value
+				\else 
+					Please ensure that the value exists and is not empty
+				\fi
+			}%
 			\pgfplotscoordmath{meta}{one}%
 			\let\pgfplotspointmeta=\pgfmathresult
 			\def\pgfplotspointmetatransformed{1.0}%
@@ -4408,6 +4557,9 @@
 		\fi
 	\fi
 }%
+\def\pgfplots@addplot@point@meta@description@of@explicit@value{%
+	Please use an input stream which provides 'explicit point meta' like \string\addplot\space table or \string\addplot\space coordinates
+}
 
 \def\pgfplotsaxisvisphasetransformpointmetaifany{%
 	\pgfplotsaxisifhaspointmeta{\pgfplotsaxisvisphasetransformpointmeta}{}%
@@ -4809,7 +4961,9 @@
 	% enable FPU after any \pgfplotsset operations. Otherwise things like
 	% linewidth=... which use the math parser might fail.
 	\ifpgfplots@usefpu
-		\pgfkeys{/pgf/fpu=true}%
+		\pgfkeys{/pgf/fpu=true,%
+			/pgf/fpu/output format=float,%
+		}%
 	\fi
 	%
 	% make sure it is reset, just in case it is not supported by the
@@ -4883,8 +5037,14 @@
 		\def\pgfplots@addplot@survey@@optionlist{/pgfplots/every axis plot,/pgfplots/every forget plot}%
 		\pgfplotsset{/pgfplots/every forget plot,/pgfplots/every axis plot post}%
 	\else
-		\edef\pgfplots@addplot@survey@@optionlist{/pgfplots/every axis plot,/pgfplots/every axis plot no \the\pgfplots@numplots/.try}%
-		\pgfplotsset{/pgfplots/every axis plot no \the\pgfplots@numplots/.try,/pgfplots/every axis plot post}%
+		\edef\pgfplots@addplot@survey@@optionlist{%
+			/pgfplots/every axis plot,%
+			/pgfplots/every axis plot except legend,%
+			/pgfplots/every axis plot no \the\pgfplots@numplots/.try}%
+		\pgfplotsset{%
+			/pgfplots/every axis plot except legend,
+			/pgfplots/every axis plot no \the\pgfplots@numplots/.try,%
+			/pgfplots/every axis plot post}%
 	\fi
 	%
 	\t@pgfplots@tokc=\expandafter{\pgfplots@addplot@survey@@optionlist,#1}% this allows '#' inside of '#1'
@@ -5113,6 +5273,13 @@
 	\pgfkeysgetvalue{/pgfplots/samples at}\pgfplots@plot@samples@at
 	\pgfkeysgetvalue{/pgfplots/variable y}\pgfplots@plot@var@y
 	% 
+	\ifx\pgfplots@plot@samples@y\pgfutil@empty
+	\else
+		\pgfplotscoordmath{default}{parse int}{\pgfplots@plot@samples@y}%
+		\let\pgfplots@plot@samples@y=\pgfmathresult
+		\pgfkeyslet{/pgfplots/samples y}{\pgfplots@plot@samples@y}%
+	\fi
+	%
 	% \tikz@plot@var is '\x' be default:
 	\pgfplots@gettikzinternal@keyval{variable}{tikz@plot@var}{\x}%
 	%
@@ -5192,10 +5359,15 @@
 		% FIXME : verify this case
 	\else
 		\pgfkeyssetvalue{/pgfplots/mesh/rows}{\pgfkeysvalueof{/pgfplots/samples y}}%
-		\pgfkeyssetvalue{/pgfplots/mesh/cols}{\pgfkeysvalueof{/pgfplots/samples}}%
+		\ifx\pgfplots@plot@samples@at\pgfutil@empty
+			\pgfkeyssetvalue{/pgfplots/mesh/cols}{\pgfkeysvalueof{/pgfplots/samples}}%
+		\else
+			% FIXME : count number of samples in 'samples at'!
+		\fi
 	\fi
 	\if1\b@pgfplots@should@sample@LINE
 		\pgfkeyssetvalue{/pgfplots/sample dim}{1}%
+		\pgfkeyslet{/pgfplots/mesh/rows}\pgfplots@plot@samples
 		\pgfkeyssetvalue{/pgfplots/mesh/cols}{1}%
 	\else
 		\pgfkeyssetvalue{/pgfplots/sample dim}{2}%
@@ -5217,7 +5389,18 @@
 
 \long\def\pgfplots@addplotimpl@expression@set@options#1#2{%
 	\def\pgfplotssurveyphaseinputclass{expression}%
-	\pgfplots@start@plot@with@behavioroptions{#1,/pgfplots/.cd,#2,/pgfplots/mesh input=lattice,/pgfplots/mesh/ordering/x varies}%
+	\pgfplots@start@plot@with@behavioroptions{%
+		#1,%
+		/pgfplots/.cd,%
+		#2,%
+		/utils/exec={%
+			\if0\pgfplotsplothandlermesh@matrixinput
+				% mesh input=patches unsupported in this context.
+				\pgfkeysalso{/pgfplots/mesh input=lattice}%
+			\fi
+		},%
+		/pgfplots/mesh/ordering/x varies%
+	}%
 	\pgfplots@plot@expression@preparekeys
 }%
 
@@ -5277,9 +5460,14 @@
 		}%
 		\pgfplots@addplotimpl@expression@split@yz#2\pgfplots@EOI%
 		%
-		% we don't have 'samples at' for 3D plots -> use domain!
-		\expandafter\pgfplots@domain@to@foreach\pgfplots@plot@domain\relax{\pgfplots@plot@samples}%
-		\let\pgfplots@expression@xdomain=\pgfplotsretval
+		\ifx\pgfplots@plot@samples@at\pgfutil@empty
+			% we don't have 'samples at' -> use domain!
+			\expandafter\pgfplots@domain@to@foreach\pgfplots@plot@domain\relax{\pgfplots@plot@samples}%
+			\let\pgfplots@expression@xdomain=\pgfplotsretval
+		\else
+			% use 'samples at':
+			\let\pgfplots@expression@xdomain=\pgfplots@plot@samples@at
+		\fi
 		%
 		% do we have '\y' as y coordinate?
 		\expandafter\def\expandafter\pgfplots@loc@TMPb\expandafter{\pgfplots@plot@var@y}%
@@ -5429,13 +5617,8 @@
 		\expandafter\def\pgfplots@plot@var@y{\pgfplots@plot@var@y@nonmacro}%
 		\expandafter\pgfplots@parse@domain\pgfplots@plot@domain\relax{pgfplots@plot@domain}%
 		%
-		\pgfmathparse{\pgfplots@plot@samples}%
-		\let\pgfplots@plot@samples=\pgfmathresult
-		%
 		\if0\b@pgfplots@should@sample@LINE
 			\expandafter\pgfplots@parse@domain\pgfplots@plot@ydomain\relax{pgfplots@plot@ydomain}%
-			\pgfmathparse{\pgfplots@plot@samples@y}%
-			\let\pgfplots@plot@samples@y=\pgfmathresult
 		\else
 			\def\pgfplots@plot@ydomain@min{0}%
 			\def\pgfplots@plot@ydomain@max{0}%
@@ -5450,7 +5633,7 @@
 		% - if a plot expression contains directlua -- the expansion will play
 		%   funny tricks in this case
 		\xdef\pgfplotsglobalretval{%
-			\directlua{%
+			\pgfplotsutil@directlua{%
 				pgfplots.texAddplotExpressionCoordinateGenerator(^^J%
 					\ifpgfplots@curplot@threedim true \else false\fi,^^J%
 					"#1", ^^J%
@@ -5501,6 +5684,12 @@
 				\pgfplots@LUA@plotexpression@log@deactivation{x expression '\pgfplots@loc@TMPa' contains a TeX macro}%
 			}{%
 			}%
+		\fi
+		%
+		\ifx\pgfplots@plot@samples@at\pgfutil@empty
+		\else
+			\def\pgfplotsretval{0}%
+			\pgfplots@LUA@plotexpression@log@deactivation{samples at unsupported (yet)}%
 		\fi
 		%
 		\if1\pgfplots@addplotimpl@expression@hasuniform@y
@@ -5878,7 +6067,7 @@
 }%
 \def\pgfplots@identify@gnuplot@logbehavior@checkversion{%
 	\begingroup
-	\immediate\write18{gnuplot -V >\pgfplots@plot@filename.vrs}%
+	\pgfplots@shellescape{gnuplot -V >\pgfplots@plot@filename.vrs}%
 	\openin\r@pgfplots@reada=\pgfplots@plot@filename.vrs\relax
 	\ifeof\r@pgfplots@reada
 		\pgfplotswarning{gnuplot -V impossible}\pgfeov
@@ -6563,6 +6752,8 @@
 		\pgfplots@addplotimpl@table@check@createonuse@for{meta}%
 	\fi
 	%
+	\let\pgfplots@addplot@point@meta@description@of@explicit@value=\pgfplots@addplot@point@meta@description@of@explicit@value@table%
+	%
 	\ifpgfplots@addplotimpl@readcompletely
 		\pgfplotstableread{#3}\pgfplots@table
 		\pgfplots@addplotimpl@table@fromstructure@{#1}{}{\pgfplots@table}{#4}%
@@ -6620,6 +6811,9 @@
 		\pgfplots@coord@stream@end
 	\fi
 }
+\def\pgfplots@addplot@point@meta@description@of@explicit@value@table{%
+	Please add a non-empty value for \string\addplot\space table[meta=...]
+}%
 \def\pgfplots@addplotimpl@table@check@createonuse@for#1{%
 	\pgfkeysgetvalue{/pgfplots/table/#1}\pgfplots@addplotimpl@table@check@createonuse@for@
 	\expandafter\pgfplotstableifiscreateonuse\expandafter{\pgfplots@addplotimpl@table@check@createonuse@for@}{%
@@ -6938,10 +7132,19 @@
 	\pgfplots@start@plot@with@behavioroptions{#1,/pgfplots/.cd,#2}%
 	\pgfplots@PREPARE@COORD@STREAM{#4}%
 	\ifpgfplots@curplot@threedim
+		\let\pgfplots@addplot@point@meta@description@of@explicit@value=\pgfplots@addplot@point@meta@description@of@explicit@value@coordinates@threedim
 		\pgfplots@coord@stream@foreach@threedim{#3}%
 	\else
+		\let\pgfplots@addplot@point@meta@description@of@explicit@value=\pgfplots@addplot@point@meta@description@of@explicit@value@coordinates@twodim
 		\pgfplots@coord@stream@foreach{#3}%
 	\fi
+}%
+
+\def\pgfplots@addplot@point@meta@description@of@explicit@value@coordinates@twodim{%
+	Please add suffixes for every coordinate in order to specify explicit point meta. The suffixes must have the form '(x,y) [meta]'
+}%
+\def\pgfplots@addplot@point@meta@description@of@explicit@value@coordinates@threedim{%
+	Please add suffixes for every coordinate in order to specify explicit point meta. The suffixes must have the form '(x,y,z) [meta]'
 }%
 
 {
@@ -6984,7 +7187,7 @@
 		\let\pgfplots@addplotimpl@expression@curly=\pgfplots@addplotimpl@expression@curly@AS
 		\let\pgfplots@addplotimpl@function@opt=\pgfplots@addplotimpl@function@opt@AS
 		\let\pgfplots@addplotimpl@file@opt=\pgfplots@addplotimpl@file@opt@AS
-		\let\pgfplots@addplotimpl@fillbetween@opt=\pgfplots@addplotimpl@file@opt@AS
+		\let\pgfplots@addplotimpl@fillbetween@opt=\pgfplots@addplotimpl@fillbetween@opt@AS
 		\let\pgfplots@addplotimpl@table@fromstructure=\pgfplots@addplotimpl@table@fromstructure@AS
 		\let\pgfplots@addplotimpl@table@fromfile=\pgfplots@addplotimpl@table@fromfile@AS
 		\let\pgfplots@addplotimpl@coordinates=\pgfplots@addplotimpl@coordinates@AS
@@ -7041,7 +7244,9 @@
 % the key name (example: 'x filter')
 \def\pgfplots@filter@expression#1{%
 	\begingroup
-	\pgfkeys{/pgf/fpu=true}%
+	\pgfkeys{/pgf/fpu=true,%
+		/pgf/fpu/output format=float,%
+	}%
 	\pgfkeysgetvalue{/pgfplots/#1/@expressionvalue}\pgfplots@loc@TMPa
 	\pgfmathparse{\pgfplots@loc@TMPa}%
 	\pgfmath@smuggleone\pgfmathresult
@@ -7185,10 +7390,10 @@
 \def\pgfplots@LUA@visualization@init{%
 	\ifpgfplots@LUA@backend@supported
 		\edef\pgfplots@loc@TMPa{%
-			\directlua{pgfplots.texVisualizationInit(\plotnum, \ifpgfplots@curplot@threedim true\else false\fi)}%
+			\pgfplotsutil@directlua{pgfplots.texVisualizationInit(\pgfplots@LUA@backend@plotnum, \ifpgfplots@curplot@threedim true\else false\fi)}%
 		}%
 		\if1\pgfplots@loc@TMPa
-			\pgfplots@log{\pgfplots@LUA@loglevel@debug}{lua backend=true: Activating partial LUA backend for visualization of plot \plotnum.}%
+			\pgfplots@log{\pgfplots@LUA@loglevel@debug}{lua backend=true: Activating partial LUA backend for visualization of plot \plotnum\space (lua: \pgfplots@LUA@backend@plotnum).}%
 		\else
 			\pgfplots@LUA@backend@supportedfalse
 		\fi
@@ -7403,6 +7608,15 @@
 	}%
 }%
 
+\def\pgfplots@addplot@define@plot@cycle@threedim{%
+	\def\pgfplots@path@closed@cycle@std{%
+		\pgfextra{%
+			\pgfpathlineto{\pgfplotsqpointxyz{\pgfplots@currentplot@lastcoord@x}{\pgfplots@currentplot@lastcoord@y}{\pgfplots@logical@ZERO@z}}%
+			\pgfpathlineto{\pgfplotsqpointxyz{\pgfplots@currentplot@firstcoord@x}{\pgfplots@currentplot@firstcoord@y}{\pgfplots@logical@ZERO@z}}%
+		}%
+		-- cycle
+	}%
+}%
 \def\pgfplots@addplot@get@named@startendpoints@command#1{%
 	\ifx\pgfplots@currentplot@firstcoord@x\pgfutil@empty
 		% empty plot.
@@ -7416,6 +7630,9 @@
 				\noexpand\pgfcoordinate{current plot begin}{\noexpand\pgfplotsqpointxyz{\pgfplots@currentplot@firstcoord@x}{\pgfplots@currentplot@firstcoord@y}{\pgfplots@currentplot@firstcoord@z}}%
 				\noexpand\pgfcoordinate{current plot end}{\noexpand\pgfplotsqpointxyz{\pgfplots@currentplot@lastcoord@x}{\pgfplots@currentplot@lastcoord@y}{\pgfplots@currentplot@lastcoord@z}}%
 			}%
+			% FIXME : wouldn't this be a good idea for 2d axes as
+			% well!?
+			\pgfplots@addplot@define@plot@cycle@threedim
 		\else
 			\edef#1{%
 				\noexpand\pgfcoordinate{current plot begin}{\noexpand\pgfplotsqpointxy{\pgfplots@currentplot@firstcoord@x}{\pgfplots@currentplot@firstcoord@y}}%
@@ -7530,7 +7747,7 @@
 		\if1\b@pgfplots@LUA@visualization@enabled
 			\ifx\pgfplots@plot@timer@args\relax
 				\expandafter\gdef\expandafter\pgfplots@plot@timer@args\expandafter{%
-					\directlua{pgfplots.texGetSurveyedCoordsToPgfplots()}%
+					\pgfplotsutil@directlua{pgfplots.texGetSurveyedCoordsToPgfplots()}%
 				}%
 			\fi
 			\let\pgfplotsaxisdeserializedatapointfrom@private=\pgfplotsaxisdeserializedatapointfrom@private@nonLUA
@@ -8693,8 +8910,13 @@
 		\pgfmath@smuggleone\pgfplots@loc@TMPc
 		\endgroup
 		%
-		\def\pgfplots@loc@TMPa{\pgfkeysvalueof{/pgfplots/plot graphics/includegraphics cmd}}%
-		\expandafter\pgfplots@loc@TMPa\expandafter[\pgfplots@loc@TMPc]{\pgfplots@loc@TMPd}%
+		\t@pgfplots@toka=\expandafter{\pgfplots@loc@TMPc}%
+		\t@pgfplots@tokb=\expandafter{\pgfplots@loc@TMPd}%
+		\edef\pgfplots@loc@TMPc{%
+			\noexpand\pgfkeysvalueof{/pgfplots/plot graphics/includegraphics cmd}%
+				[\the\t@pgfplots@toka]
+				{\the\t@pgfplots@tokb}}%
+		\pgfplots@loc@TMPc
 	\fi
 }%
 
@@ -8784,7 +9006,7 @@
 	\or
 		% reverse xy seq:
 		\ifpgfplots@LUA@backend@supported
-			\directlua{pgfplots.texApplyZBufferReverseStream()}%
+			\pgfplotsutil@directlua{pgfplots.texApplyZBufferReverseStream()}%
 		\else
 			\begingroup
 			\def\pgfplots@coord@stream@start{%
@@ -8807,7 +9029,7 @@
 		% sort.
 		\if\pgfplots@meshmode n%
 			\ifpgfplots@LUA@backend@supported
-				\directlua{pgfplots.texApplyZBufferSort()}%
+				\pgfplotsutil@directlua{pgfplots.texApplyZBufferSort()}%
 			\else
 				\pgfplots@apply@zbuffer@sort@coordinates
 			\fi
@@ -8824,8 +9046,18 @@
 		% only need to know whether [xy] coordinates are sorted
 		% ascending or descending. This information is already ready.
 		%
-		\if1\pgfplotsplothandlermesh@matrixinput
-			% mesh input=lattice
+		\ifcase\pgfplotsplothandlermesh@matrixinput
+			% mesh input=patches
+			\ifpgfplots@threedim
+				\if\pgfplots@meshmode n%
+				\else
+					\pgfkeys{/pgfplots/z buffer=sort}%
+				\fi
+			\else
+				\pgfkeys{/pgfplots/z buffer=none}%
+			\fi
+		\else
+			% mesh input=lattice|image
 			\begingroup
 			\if+\pgfkeysvalueof{/pgfplots/x coord sorting}%
 				\def\pgfplots@minmaxvalue@x{0}%
@@ -8865,16 +9097,6 @@
 			\endgroup
 			% 'z buffer' is no longer 'auto' now:
 			\pgfplots@apply@zbuffer
-		\else
-			% mesh input=patches
-			\ifpgfplots@threedim
-				\if\pgfplots@meshmode n%
-				\else
-					\pgfkeys{/pgfplots/z buffer=sort}%
-				\fi
-			\else
-				\pgfkeys{/pgfplots/z buffer=none}%
-			\fi
 		\fi
 	\or
 		% z buffer=default.
@@ -8882,7 +9104,15 @@
 			% mesh mode deactivated!
 		\else
 			% mesh=true
-			\pgfkeysalso{/pgfplots/z buffer=auto}%
+			\if2\pgfplotsplothandlermesh@matrixinput
+				% mesh input=image
+				% we do not want z buffering by default because it
+				% leads to undefined color associations.
+				% Use 'z buffer=auto' to re-enable it
+				\pgfkeys{/pgfplots/z buffer=none}%
+			\else
+				\pgfkeysalso{/pgfplots/z buffer=auto}%
+			\fi
 			\pgfplots@apply@zbuffer%
 		\fi
 	\fi
@@ -8940,7 +9170,7 @@
 % 	\pgfplotsglobalretval contains the partial reversion.
 \def\pgfplots@apply@zbuffer@reversescanline{%
 	\ifpgfplots@LUA@backend@supported
-		\directlua{pgfplots.texApplyZBufferReverseScanline(\pgfplotsscanlinelength)}%
+		\pgfplotsutil@directlua{pgfplots.texApplyZBufferReverseScanline(\pgfplotsscanlinelength)}%
 	\else
 		\begingroup
 		\def\pgfplots@coord@stream@start{%
@@ -8981,7 +9211,7 @@
 % scanlines occur.
 \def\pgfplots@apply@zbuffer@reversetransposed{%
 	\ifpgfplots@LUA@backend@supported
-		\directlua{pgfplots.texApplyZBufferReverseTransposed(\pgfplotsscanlinelength)}%
+		\pgfplotsutil@directlua{pgfplots.texApplyZBufferReverseTransposed(\pgfplotsscanlinelength)}%
 	\else
 		\begingroup
 		\def\pgfplots@coord@stream@start{%
@@ -9147,6 +9377,6 @@
     \immediate\openout\pgf@shellwrite=#1.sh
     \immediate\write\pgf@shellwrite{#2}%
     \immediate\closeout\pgf@shellwrite%
-    \immediate\write18{sh #1.sh > #1.out}
+    \pgfplots@shellescape{sh #1.sh > #1.out}
   \fi%
 }

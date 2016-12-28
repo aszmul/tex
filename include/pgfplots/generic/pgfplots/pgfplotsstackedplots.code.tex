@@ -92,7 +92,9 @@
 % space.
 \def\pgfplots@stacked@finalize{%
 	\global\pgfplotslistnewempty\pgfplots@stacked@zerolevellist
-	\global\pgfplotslistnewempty\pgfplots@stacked@nextzerolevellist
+	\global\pgfplotslistnewempty\pgfplots@stacked@zerolevellist@neg
+	\global\pgfplotslistnewempty\pgfplots@stacked@nextzerolevellist@pos
+	\global\pgfplotslistnewempty\pgfplots@stacked@nextzerolevellist@neg
 	\pgfplots@stacked@isinitialisedfalse
 }%
 
@@ -114,49 +116,94 @@
 		\pgfplots@error{LOGIC ERROR: please call \string\pgfplots@stacked@initialise.}%
 	\fi
 	\def\pgfplots@stacked@zerolevel@current{}%
+	\def\pgfplots@stacked@zerolevel@current@pos{}%
+	\def\pgfplots@stacked@zerolevel@current@neg{}%
 	\pgfplots@stacked@prepare@value@serialization
 	% accumulate this command here for \closedcycle:
 	\ifpgfplots@stacked@isfirstplot
 		\global\pgfplotslistnewempty\pgfplots@stacked@zerolevellist
+		\global\pgfplotslistnewempty\pgfplots@stacked@zerolevellist@neg
 		% only work with float if its really necessary - for
 		% example if the scaling trafo which maps to pgfmath is
 		% not yet initialised.
-		\ifpgfplots@datascaletrafo@initialised % FIXME : should be '!ifsurvey'
-			\def\pgfplots@stacked@zerolevelpoint@x{0}%
-			\def\pgfplots@stacked@zerolevelpoint@y{0}%
-			\def\pgfplots@stacked@zerolevelpoint@z{0}%
-		\else
-			% note that log plots are special: their "stacked zero" is
-			% computed with \pgfplotscoordmath{default}
-			%
-			\pgfplots@if{pgfplots@xislinear}{\pgfplotscoordmath{x}{zero}}{\pgfplotscoordmath{default}{zero}}%
-			\let\pgfplots@stacked@zerolevelpoint@x=\pgfmathresult
-			%
-			\pgfplots@if{pgfplots@yislinear}{\pgfplotscoordmath{y}{zero}}{\pgfplotscoordmath{default}{zero}}%
-			\let\pgfplots@stacked@zerolevelpoint@y=\pgfmathresult
-			%
-			\pgfplots@if{pgfplots@xislinear}{\pgfplotscoordmath{z}{zero}}{\pgfplotscoordmath{default}{zero}}%
-			\let\pgfplots@stacked@zerolevelpoint@z=\pgfmathresult
-		\fi
+		\pgfplots@stacked@zerolevel@fallback x%
+		\pgfplots@stacked@zerolevel@fallback y%
+		\pgfplots@stacked@zerolevel@fallback z%
 		%
-		\def\pgfplots@stacked@getnextzerolevelpoint{}% will remain constant anyway.
+		\def\pgfplots@stacked@getnextzerolevelpoint{%
+			% keep \pgfplots@stacked@zerolevel@current = {}
+			% there is special handling in place which will use the
+			% '0' level in this case
+			%
+			% omit this:
+			%\pgfplots@stacked@ensure{}%
+			%\let\pgfplots@stacked@zerolevel@current=\pgfplotsretval
+		}%
 	\else
 		{\globaldefs=1
-		\pgfplotslistcopy\pgfplots@stacked@nextzerolevellist\to\pgfplots@stacked@zerolevellist
+		\pgfplotslistcopy\pgfplots@stacked@nextzerolevellist@pos\to\pgfplots@stacked@zerolevellist
+		\pgfplotslistcopy\pgfplots@stacked@nextzerolevellist@neg\to\pgfplots@stacked@zerolevellist@neg
 		}%
 		\def\pgfplots@stacked@getnextzerolevelpoint{%
-			\pgfplotslistcheckempty\pgfplots@stacked@zerolevellist
-			\ifpgfplotslistempty
-				\pgfplots@stacked@wrong@count@error
+			%
+			\pgfplots@stacked@getnextzerolevelpoint@pos
+			%
+			\if P\pgfplots@stacked@negative@mode
+				% stack negative=on previous:
+				% just use one list in order to remember the
+				% zerolevel:
+				\expandafter\pgfplots@stacked@parsezerolevelpoint\expandafter{\pgfplots@stacked@zerolevel@current@pos}%
 			\else
-				{\globaldefs=1
-				\pgfplotslistpopfront\pgfplots@stacked@zerolevellist\to\pgfmathresult
-				}%
-				\expandafter\pgfplots@stacked@parsezerolevelpoint\expandafter{\pgfmathresult}%
+				% stack negative=separate:
+				% use two levels, one for '+' and one for '-':
+				\pgfplots@stacked@getnextzerolevelpoint@neg
+				%
+				\if+\pgfplots@stacked@sign
+					\expandafter\pgfplots@stacked@parsezerolevelpoint\expandafter{\pgfplots@stacked@zerolevel@current@pos}%
+				\else
+					\expandafter\pgfplots@stacked@parsezerolevelpoint\expandafter{\pgfplots@stacked@zerolevel@current@neg}%
+				\fi
 			\fi
 		}%
 	\fi
-	\global\pgfplotslistnewempty\pgfplots@stacked@nextzerolevellist
+	\global\pgfplotslistnewempty\pgfplots@stacked@nextzerolevellist@pos
+	\global\pgfplotslistnewempty\pgfplots@stacked@nextzerolevellist@neg
+}%
+
+\def\pgfplots@stacked@getnextzerolevelpoint@pos{%
+	\pgfplotslistcheckempty\pgfplots@stacked@zerolevellist
+	\ifpgfplotslistempty
+		\pgfplots@stacked@wrong@count@error
+	\else
+		{\globaldefs=1
+		\pgfplotslistpopfront\pgfplots@stacked@zerolevellist\to\pgfplots@stacked@zerolevel@current@pos
+		}%
+	\fi
+}%
+\def\pgfplots@stacked@getnextzerolevelpoint@neg{%
+	\pgfplotslistcheckempty\pgfplots@stacked@zerolevellist@neg
+	\ifpgfplotslistempty
+		\pgfplots@stacked@wrong@count@error
+	\else
+		{\globaldefs=1
+		\pgfplotslistpopfront\pgfplots@stacked@zerolevellist@neg\to\pgfplots@stacked@zerolevel@current@neg
+		}%
+	\fi
+}
+
+\def\pgfplots@stacked@zerolevel@fallback#1{%
+	\pgfplots@stacked@zerolevel@fallback@{#1}%
+	\expandafter\let\csname pgfplots@stacked@zerolevelpoint@#1\endcsname=\pgfmathresult%
+}%
+\def\pgfplots@stacked@zerolevel@fallback@#1{%
+	\ifpgfplots@datascaletrafo@initialised % FIXME : should be '!ifsurvey'
+		\def\pgfmathresult{0}%
+	\else
+		% note that log plots are special: their "stacked zero" is
+		% computed with \pgfplotscoordmath{default}
+		%
+		\pgfplots@if{pgfplots@#1islinear}{\pgfplotscoordmath{#1}{zero}}{\pgfplotscoordmath{default}{zero}}%
+	\fi
 }%
 
 % ATTENTION: install this before 'visualization depends on' - it
@@ -198,6 +245,7 @@
 	% The zero'th level has an empty zero level point.
 	\expandafter\def\expandafter\pgfplotsaxisserializedatapoint@private\expandafter{%
 		\pgfplotsaxisserializedatapoint@private
+		% at deserialization time, this will become \pgfplots@stacked@zerolevel :
 		\t@pgfplots@toka=\expandafter{\pgfplots@stacked@zerolevel@current}%
 		\t@pgfplots@tokb=\expandafter{\pgfplotsretval}%
 		\edef\pgfplotsretval{%
@@ -220,6 +268,7 @@
 	\pgfplotsaxisdeserializedatapointfrom@private@backup@{#2}%
 }%
 
+% #1: the result of \pgfplotsaxisserializedatapointtostring
 \def\pgfplots@stacked@parsezerolevelpoint#1{%
 	\begingroup
 	\pgfplotsaxisdeserializedatapointfrom#1% no braces here!
@@ -253,6 +302,16 @@
 		\ifpgfplotslistempty
 		\else
 			\pgfplots@stacked@wrong@count@error
+		\fi
+		\if P\pgfplots@stacked@negative@mode
+			% stack negative=on previous:
+		\else
+			% stack negative=separate:
+			\pgfplotslistcheckempty\pgfplots@stacked@zerolevellist@neg
+			\ifpgfplotslistempty
+			\else
+				\pgfplots@stacked@wrong@count@error
+			\fi
 		\fi
 	\fi
 	\ifpgfplots@stacked@isfirstplot
@@ -291,11 +350,6 @@
 	\fi
 }%
 
-% #1: a point as (x,y) (or (x,y,z) )
-\def\pgfplots@stacked@rememberzerolevelpoint@for@next@plot#1{%
-	\expandafter\pgfplotslistpushbackglobal\expandafter{#1}\to\pgfplots@stacked@nextzerolevellist
-}
-
 % Provides public access to zero levels into some key-value pairs.
 % Returns the values into a set of keys in the /data point/ prefix.
 %
@@ -313,6 +367,12 @@
 \def\pgfplotspointgetnormalizedzerolevelcoordinates{%
 	\begingroup
 	\ifpgfplots@stackedmode
+		% STATE: 
+		%  * \pgfplots@stacked@diff is the diff of the CURRENT point.
+		%  * \pgfplots@stacked@zerolevel is the ENTIRE point of the
+		%     zerolevel (consisting of its recursive zerolevel, its own diff, and its x,y coords) 
+		%  -> we need both
+		\let\pgfplots@stacked@diff@cur=\pgfplots@stacked@diff
 		\ifx\pgfplots@stacked@zerolevel\pgfutil@empty
 			\pgfplotspointgetnormalizedcoordinates%
 			\pgfplotsutilforeachcommasep{x,y,z}\as\pgfplots@loc@TMPa{%
@@ -333,7 +393,7 @@
 		\pgfplotscoordmath{x}{zero}\let\pgfplots@stacked@diff@x=\pgfmathresult%
 		\pgfplotscoordmath{y}{zero}\let\pgfplots@stacked@diff@y=\pgfmathresult%
 		\pgfplotscoordmath{z}{zero}\let\pgfplots@stacked@diff@z=\pgfmathresult%
-		\pgfutil@namelet{pgfplots@stacked@diff@\pgfplots@stacked@dir}{pgfplots@stacked@diff}%
+		\pgfutil@namelet{pgfplots@stacked@diff@\pgfplots@stacked@dir}{pgfplots@stacked@diff@cur}%
 	\else
 		% Ah - no stacked plot!? Well, than do "something useful":
 		% ... note that we have to use 'pgfbasic' here as that is the
@@ -383,12 +443,18 @@
 		%
 		% Note that it is not necessarily the first one which is
 		% processed (compare reverse stacked plots).
+		\begingroup
+		% FIXME : eliminate this special handling by recording the
+		% correct '0' values during the survey phase!
+		\pgfutil@namelet{pgfplots@current@point@\pgfplots@stacked@dir}{pgfplots@logical@ZERO@\pgfplots@stacked@dir}%
+		\pgfplotsaxis@toPGF@coords
 		\if\pgfplots@stacked@dir x
-			\edef\pgfplots@loc@TMPa{\pgfplots@logical@ZERO@x pt}%
+			\edef\pgfplots@stacked@PGF@zerolevel{\the\pgf@x}%
 		\else
-			\edef\pgfplots@loc@TMPa{\pgfplots@logical@ZERO@y pt}%
+			\edef\pgfplots@stacked@PGF@zerolevel{\the\pgf@y}%
 		\fi
-		\let\pgfplots@stacked@PGF@zerolevel\pgfplots@loc@TMPa
+		\pgfmath@smuggleone\pgfplots@stacked@PGF@zerolevel
+		\endgroup
 		%
 	\else
 		\begingroup
@@ -455,8 +521,6 @@
 % POSTCONDITION:
 % 	- \pgfplots@current@point@[xyz] are adjusted.
 \def\pgfplots@stacked@preparepoint@inmacro{%
-	\pgfplots@stacked@getnextzerolevelpoint
-	%
 	\ifpgfplots@stacked@plus
 		\def\pgfplots@stacked@op{add}%
 	\else
@@ -464,6 +528,15 @@
 	\fi
 	%
 	\pgfutil@namelet{pgfplots@stacked@diff}{pgfplots@current@point@\pgfplots@stacked@dir}%
+	%
+	\pgfmathfloatparsenumber{\pgfplots@stacked@diff}%
+	\expandafter\pgfmathfloatifflags\expandafter{\pgfmathresult}{2}{%
+		\def\pgfplots@stacked@sign{-}%
+	}{%
+		\def\pgfplots@stacked@sign{+}%
+	}%
+	\pgfplots@stacked@getnextzerolevelpoint
+	%
 	%
 	\pgfplots@if{pgfplots@\pgfplots@stacked@dir islinear}{%
 		\pgfplotscoordmath{\pgfplots@stacked@dir}{op}{\pgfplots@stacked@op}{%
@@ -490,7 +563,6 @@
 	% this here would also be ok, but it would only store the coords
 	% of the zero level...
 	%\pgfplotsplothandlerserializepointto\pgfplotsretval
-%\message{serializing current value current value to \meaning\pgfplotsretval^^J}%
 	%
 	\begingroup
 	%
@@ -499,13 +571,45 @@
 	\pgfplots@stacked@strip@parents@zerolevel
 	%
 	\pgfplotsaxisserializedatapointtostring
-	\pgfplots@stacked@rememberzerolevelpoint@for@next@plot{\pgfplotsretval}%
+	%
+%\message{Current value is '\pgfplots@stacked@sign'. Serializing: \meaning\pgfplotsretval^^J}%
+	\if P\pgfplots@stacked@negative@mode
+		% stack negative=on previous:
+		% just track one list
+		\expandafter\pgfplotslistpushbackglobal\expandafter{\pgfplotsretval}\to\pgfplots@stacked@nextzerolevellist@pos
+	\else
+		% stack negative=separate:
+		% keep track of both separate zerolevel lists:
+		\if+\pgfplots@stacked@sign
+			\expandafter\pgfplotslistpushbackglobal\expandafter{\pgfplotsretval}\to\pgfplots@stacked@nextzerolevellist@pos
+			%
+			\pgfplots@stacked@ensure\pgfplots@stacked@zerolevel@current@neg
+			\expandafter\pgfplotslistpushbackglobal\expandafter{\pgfplotsretval}\to\pgfplots@stacked@nextzerolevellist@neg
+		\else
+			\expandafter\pgfplotslistpushbackglobal\expandafter{\pgfplotsretval}\to\pgfplots@stacked@nextzerolevellist@neg
+			%
+			\pgfplots@stacked@ensure\pgfplots@stacked@zerolevel@current@pos
+			\expandafter\pgfplotslistpushbackglobal\expandafter{\pgfplotsretval}\to\pgfplots@stacked@nextzerolevellist@pos
+		\fi
+	\fi
+	%
 	\endgroup
 	%
 	% 
 	%
 	\pgfplots@stacked@logarithm@if@needed
 }
+
+\def\pgfplots@stacked@ensure#1{%
+	\ifx#1\pgfutil@empty
+		\pgfplots@stacked@zerolevel@fallback@{\pgfplots@stacked@dir}%
+		\expandafter\let\csname pgfplots@current@point@\pgfplots@stacked@dir\endcsname=\pgfmathresult
+	\else
+		\expandafter\pgfplotsaxisdeserializedatapointfrom#1% no braces
+	\fi
+	\pgfplotsaxisserializedatapointtostring
+%\message{UNUSED value serialized as \meaning\pgfplotsretval^^J}%
+}%
 
 % 
 % We store the normal values for zero levels. Consequently, we may

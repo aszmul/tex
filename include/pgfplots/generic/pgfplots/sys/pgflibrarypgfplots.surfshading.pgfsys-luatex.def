@@ -1,4 +1,5 @@
 %--------------------------------------------
+% $Header: /cvsroot/pgfplots/pgfplots/generic/pgfplots/sys/pgflibrarysurfshading.pgfsys-pdftex.def,v 1.1 2009/06/11 07:14:52 ludewich Exp $
 %
 % Package pgfplots
 %
@@ -7,7 +8,7 @@
 % 
 % It is based on Till Tantau's PGF package.
 %
-% Copyright 2007-2012 by Christian Feuersänger.
+% Copyright 2007/2008 by Christian Feuersänger.
 %
 % This program is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
@@ -23,21 +24,6 @@
 % along with this program.  If not, see <http://www.gnu.org/licenses/>.
 %
 %--------------------------------------------
-
-\newcount\c@pgfplotslibrarysurf@streamlen
-
-\def\pgfplotslibrarysurf@initstream{%
-	% binary doesn't work due to limitations of DVI.
-	% We NEED an ASCII encoding.
-	%
-	\def\pgfplotslibrarysurf@filter@encode{ASCIIHexEncode}%
-	\def\pgfplotslibrarysurf@filter@decode{ASCIIHexDecode}%
-	\global\c@pgfplotslibrarysurf@streamlen=0 %
-}%
-
-\def\pgfplotslibrarysurf@advancestreamlen#1{%
-	\global\advance\c@pgfplotslibrarysurf@streamlen by#1\relax
-}%
 
 % The lowlevel call for surface shadings. It uses a pattern type 2
 % dictionary as fill color and has thus several things to do. This is
@@ -57,8 +43,8 @@
 % operator which is why I am using pattern dictionaries.
 \def\pgfplotslibrarysurfdraw@sys{%
 	\begingroup
-	\setbox\pgfutil@tempboxa=\hbox
-	{%
+	%\pgfinterruptpicture% needed?
+	\setbox\pgfutil@tempboxa=\hbox{%
 		\pgfpicture
 		\pgfplotssys@do@surfshading@fillpaths\pgfplots@loc@TMPa%
 		\global\let\pgfplots@glob@TMPa=\pgfplots@loc@TMPa
@@ -68,36 +54,13 @@
 		\pgfplotslibrarysurfusepath
 		\endpgfpicture
 	}%
-	%
-	% NOTE : this code was broken due to some driver in pgf. I fixed
-	% that and brought the fix with pgfplots.
-	%
-	% for some reason, dvipdfmx requires to move the XObject
-	% declaration out of the current stream.
-	% Perhaps I should rephrase and say that for some reason, this appears to be
-	% unnecessary for pdftex. 
-	%
-	% FIXME : this might have N^2 time due to "box-append"!
-	\pgfutil@insertatbegincurrentpagefrombox
-	{%
-		\special{pdf: bxobj @pgfplotsX\pgfplotslibrarysurf@count\space 
-			width \the\wd\pgfutil@tempboxa\space height \the\ht\pgfutil@tempboxa}%
-		\special{pdf: put @resources 
-			% write the pattern resource dictionary of the XObject
-			% (only!):
-			<< /Pattern << \pgfplots@glob@TMPa >> >> 
-		}%
-		%
-		% no need to add the pattern to the page's resource list!
-		% we do not need this:
-		%\pgfutil@addpdfresource@patterns{\pgfplots@glob@TMPa}%
-		\leavevmode
-		\box\pgfutil@tempboxa
-		\special{pdf: exobj}%
-	}%
+	\immediate\saveboxresource resources{
+		/Pattern << \pgfplots@glob@TMPa >> % write the pattern resource dictionary
+	}\pgfutil@tempboxa
+	\leavevmode
+	\useboxresource\lastsavedboxresourceindex
+	%\endpgfinterruptpicture
 	\endgroup
-	\special{pdf: uxobj @pgfplotsX\pgfplotslibrarysurf@count\space}%
-	\pgfplotsutil@advancestringcounter@global\pgfplotslibrarysurf@count
 }
 
 % To be used inside of a pgfpicture.
@@ -109,9 +72,14 @@
 %
 %
 \def\pgfplotssys@do@surfshading@fillpaths#1{%
-	% it contain the BINARY bytes. But it is ASCII encoded, see docs of ASCIIHexEncode.
-	\global\multiply\c@pgfplotslibrarysurf@streamlen by2 % 
-	%
+	\ifx\pgfplotslibrarysurf@filter@decode\pgfutil@empty
+	\else
+		% Unfortunately, there is a bug in pdftex/luatex: if we
+		% provide a /Filter as attr, and pdftex compresses the stream,
+		% it overwrites the /Filter argument -- and the viewer cannot
+		% decode the stream. We have to deactivate compression here:
+		\pdfvariable compresslevel=0
+	\fi
 	\def\pgfplots@loc@TMPa{%
 		% stream length will be computed automatically
 		/ShadingType \pgfplotslibrarysurf@type\space
@@ -131,48 +99,62 @@
 		\else
 			/Filter /\pgfplotslibrarysurf@filter@decode\space
 		\fi
-		/Length \the\c@pgfplotslibrarysurf@streamlen
 	}%
 	%
+	% \pgfplots@loc@TMPb := final boolean luaBinaryEncoding;
+	\pgfutil@IfUndefined{directlua}{%
+		\def\pgfplots@loc@TMPb{0}%
+	}{%
+		\ifx\pgfplotslibrarysurf@filter@decode\pgfutil@empty
+			% ah - we have binary encoding (the standard).
+			\def\pgfplots@loc@TMPb{1}%
+		\else
+			% ah - base 16 ASCII encoding:
+			\def\pgfplots@loc@TMPb{0}%
+		\fi
+	}%
+	\if0\pgfplots@loc@TMPb
+		% no lua binary encoding. Use standard pdftex operations:
+		\immediate\pdfextension obj  stream attr {%
+			\pgfplots@loc@TMPa
+		} {%
+			\pgfplotslibrarysurf@binarystream
+		}%
+		\edef\pgfplots@loc@TMPa{\the\numexpr\pdffeedback lastobj\relax}%
+	\else
+		% special handling for luatex binary encoding (see docs for \pgfplotsbinarytoluabinary):
+		\pgfplotsbinarytoluabinary{\pgfplotslibrarysurf@binarystream}%
+		\edef\pgfplots@loc@TMPa{%
+			\directlua{%
+				tex.print(pdf.immediateobj(\pgfplotsDQ stream\pgfplotsDQ , pgfplotsretval, \pgfplotsDQ \pgfplots@loc@TMPa\pgfplotsDQ ));
+				pgfplotsretval=nil;
+			}%
+		}%
+	\fi
 	\pgf@process{\pgfpointdiff{\pgfplotslibrarysurf@corner@sw}{\pgfkeysvalueof{/pgfplots/surf shading/anchor}}}%
 	\pgf@sys@bp@correct\pgf@x%
 	\pgf@sys@bp@correct\pgf@y%
-	%
-	%\noexpand\pgfutil@insertatbegincurrentpagefrombox
-	{%
-		\special{pdf: object @pgfplotsShading\pgfplotslibrarysurf@count\space << \pgfplots@loc@TMPa >> 
-			stream^^J%
-			\pgfplotslibrarysurf@binarystream
-			endstream
-		}%
-		\special{pdf: close @pgfplotsShading\pgfplotslibrarysurf@count\space }%
-		\special{pdf: object @pgfplotsPattern\pgfplotslibrarysurf@count\space <<
-			/Type /Pattern
-			/PatternType 2
-	%		/Matrix [\pgf@pt@aa\space\pgf@pt@ab\space\pgf@pt@ba\space\pgf@pt@bb\space\pgf@sys@tonumber\pgf@pt@x\space\pgf@sys@tonumber\pgf@pt@y]
-			% FIXME: INCORPORATE TIKZ CM
-			/Matrix [1 0 0 1 \pgf@sys@tonumber\pgf@x\space \pgf@sys@tonumber\pgf@y] %226.533 518.141] 
-			%--------------------------------------------------
-			% /ExtGState 
-			% 	<<
-			% 		/LW 2
-			% 		/OP true
-			% 		/OPM 1
-			% 	>>
-			%-------------------------------------------------- 
-			/Shading @pgfplotsShading\pgfplotslibrarysurf@count
-		>>
-		}%
-		\special{pdf: close @pgfplotsPattern\pgfplotslibrarysurf@count\space }%
-	}%
+	\immediate\pdfextension obj  {<<
+		/Type /Pattern
+		/PatternType 2
+%		/Matrix [\pgf@pt@aa\space\pgf@pt@ab\space\pgf@pt@ba\space\pgf@pt@bb\space\pgf@sys@tonumber\pgf@pt@x\space\pgf@sys@tonumber\pgf@pt@y]
+		% FIXME: INCORPORATE TIKZ CM
+		/Matrix [1 0 0 1 \pgf@sys@tonumber\pgf@x\space \pgf@sys@tonumber\pgf@y] %226.533 518.141] 
+		%--------------------------------------------------
+		% /ExtGState 
+		% 	<<
+		% 		/LW 2
+		% 		/OP true
+		% 		/OPM 1
+		% 	>>
+		%-------------------------------------------------- 
+		/Shading \pgfplots@loc@TMPa\space 0 R 
+	>>}%
 	\edef#1{%
-		/pgfplotsSurface\pgfplotslibrarysurf@count\space @pgfplotsPattern\pgfplotslibrarysurf@count
+		/pgfpatPlotsurface\pgfplotslibrarysurf@count\space \the\numexpr\pdffeedback lastobj\relax\space 0 R
 	}%
-	%
-	% I inlined \pgfsys@setpatterncolored here because it appears to be
-	% natural - and in order to bring this driver to PGF 2.00 (which
-	% would fail otherwise)
-	\pgfsysprotocol@literal{/Pattern cs /pgfplotsSurface\pgfplotslibrarysurf@count\space scn}%
+	\pgfsys@setpatterncolored{Plotsurface\pgfplotslibrarysurf@count}%
+	\pgfplotsutil@advancestringcounter@global\pgfplotslibrarysurf@count
 }
 
 \endinput

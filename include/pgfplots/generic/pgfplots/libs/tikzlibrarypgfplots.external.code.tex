@@ -33,6 +33,7 @@
 
 % \pgfplots@glob@TMPa = 1 iff we can rely on the external lib shipped
 % with tikz:
+% -> see also below for a list of patches!
 \pgfplotsiffileexists{tikzlibraryexternal.code.tex}{%
 	\pgfplots@ifneedspgfcompabitibilitycode@has@pgf@one@zero@zero{%
 		\def\pgfplots@glob@TMPa{0}%
@@ -56,9 +57,18 @@
 
 \if1\pgfplots@glob@TMPa
 	\usetikzlibrary{external}%
-	\pgfutil@ifundefined{tikzexternal@driver@pgfsys-pdftex.def}{%
+	%
+	% check for patches
+	\gdef\pgfplots@glob@TMPa{0}%
+	\pgfutil@ifundefined{c@tikzexternal@version}{%
+		\gdef\pgfplots@glob@TMPa{1}%
+	}{%
+		\gdef\pgfplots@glob@TMPa{0}%
+	}%
+	%
+	\if1\pgfplots@glob@TMPa
 		\pgfplots@backw@compat@external@load
-	}{}%
+	\fi
 \else
 	\pgfplots@backw@compat@external@load
 \fi
@@ -97,6 +107,25 @@
 	}%
 	\csname pgfplots@backw@ext@\pgfsysdriver\endcsname
 	\endgroup
+\fi
+
+
+
+\def\tikzexternal@externalizefig@systemcall@call@old#1{%
+	\iftikzexternal@verboseio
+		\immediate\write16{===== 'mode=convert with system call': Invoking '#1' ========}%
+	\fi
+	\immediate\write18{#1}%
+}%
+
+\def\tikzexternal@externalizefig@systemcall@call@new#1{%
+	\iftikzexternal@verboseio
+		\immediate\write16{===== 'mode=convert with system call': Invoking '#1' ========}%
+	\fi
+	\pgfutil@shellescape{#1}%
+}%
+\ifx\tikzexternal@externalizefig@systemcall@call\tikzexternal@externalizefig@systemcall@call@old
+	\let\tikzexternal@externalizefig@systemcall@call=\tikzexternal@externalizefig@systemcall@call@new
 \fi
 
 \endinput

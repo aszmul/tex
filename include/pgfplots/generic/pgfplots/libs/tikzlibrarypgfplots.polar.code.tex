@@ -42,21 +42,39 @@
 	/pgfplots/polar labels/.code={
 		% this is equivalent to 'use units=false'. But that key is only available if the units lib is loaded.
 		\pgfplots@units@usefalse
-		\pgfkeysalso{%
-			% is this a good choice? No, it is not.
-			% In fact, I believe that neither xlabel nor ylabel is a good idea for a polar plot.
-			% BUT: if we simply leave the defaults, they will be placed outside of the circle - and
-			% this will confuse the units library which (for some reason) always generates labels.
-			every axis x label/.style={
-				at={(rel axis cs:0,0.5)},
-				anchor=north,
-			},
-			every axis y label/.style={
-				at={(0.2,0.85)},
-				anchor=center,
-			},
-		}%
+		\if1\b@pgfplots@polaraxis@fix@positioning
+			\pgfkeysalso{%
+				every axis x label/.style={
+					at={(xticklabel cs:0.125)},
+					sloped={at position=45},
+					anchor=near ticklabel,
+					near ticklabel at=45,
+				},
+				every axis y label/.style={
+					at={(yticklabel cs:0.5)},
+					anchor=near ticklabel,
+				},
+			}%
+		\else
+			\pgfkeysalso{%
+				% is this a good choice? No, it is not.
+				% In fact, I believe that neither xlabel nor ylabel is a good idea for a polar plot.
+				% BUT: if we simply leave the defaults, they will be placed outside of the circle - and
+				% this will confuse the units library which (for some reason) always generates labels.
+				every axis x label/.style={
+					at={(rel axis cs:0,0.5)},
+					anchor=north,
+				},
+				every axis y label/.style={
+					at={(0.2,0.85)},
+					anchor=center,
+				},
+			}%
+		\fi
 	},
+	/pgfplots/polar labels style/.style={%
+		/pgfplots/polar labels/.append style={#1}%
+	},%
 	/pgfplots/xticklabel in circle/.style={
 		xtick align=inside,
 		xticklabel style={
@@ -78,7 +96,14 @@
 	\let\pgfplotsqpointxy@cart=\pgfplotsqpointxy
 	\let\pgfplotsqpointxy=\pgfplotsqpointxy@polaraxis
 	\let\pgfplotsqpointxy@orthogonal=\pgfplotsqpointxy
-%	\def\pgfplotsqpointxyz##1##2##3{\pgfplotsqpointxy{##1}{##2}}% FIXME
+	\if1\b@pgfplots@polaraxis@fix@positioning
+		% this is needed in order to let
+		% \pgfplotspointonorientedsurfaceab work
+		\def\pgfplotsqpointxyz##1##2##3{%
+			% ignore z here.
+			\pgfplotsqpointxy{##1}{##2}%
+		}%
+	\fi
 	\let\pgfplotspointouternormalvectorofaxis@=\pgfplotspointouternormalvectorofaxis@polaraxis
 	\def\pgfplotspointouternormalvectorofaxis@ifdependson@v##1##2##3{##2}%
 	\def\pgfplots@drawtickgridlines@INSTALLCLIP@onorientedsurf##1{}%
@@ -97,7 +122,9 @@
 	\let\pgfplots@limits@ready=\pgfplots@limits@ready@polar
 	\let\pgfplots@assign@default@tick@foraxis@normalizetickdist=\pgfplots@assign@default@tick@foraxis@normalizetickdist@polar
 	\let\pgfplots@show@ticklabel@=\pgfplots@show@ticklabel@@polar
+	\let\pgfplots@transformshift@along@outer@normal@on@line@of@oriented@surf=\pgfplots@transformshift@along@outer@normal@on@line@of@oriented@surf@polar
 	\let\pgfplots@enlarge@limit@for=\pgfplots@enlarge@limit@for@polar
+	\let\pgfplotstransformtoaxisdirection@=\pgfplotstransformtoaxisdirection@@polar
 	\def\pgfplots@xtick@disable@last@tick{0}%
 	\let\pgfplots@xtick@check@tickshow=\pgfplots@xtick@check@tickshow@polar%
 	\let\pgfplots@set@options@sanitize=\relax
@@ -132,6 +159,58 @@
 	\let\pgfplotsaxisupdatelimitsforcoordinatetwodim=\pgfplotsaxisupdatelimitsforcoordinatetwodim@polar
 	\let\pgfplotsaxisupdatelimitsforcoordinatethreedim=\pgfplotsaxisupdatelimitsforcoordinatetwodim@polar
 }%
+
+\let\pgfplotstransformtoaxisdirection@@orig=\pgfplotstransformtoaxisdirection@
+\def\pgfplotstransformtoaxisdirection@@polar[#1]#2{%
+	\if#2y%
+		\pgfplotstransformtoaxisdirection@@orig[#1]{#2}%
+	\else
+		% ah, the angle. Treat it with special care.
+		\pgfplots@sloped@allowupsidedownfalse
+		\pgfplots@sloped@resets@nontranslationstrue
+		%
+		\def\pgfplots@loc@TMPa{#1}%
+		\ifx\pgfplots@loc@TMPa\pgfutil@empty
+		\else
+			\pgfqkeys{/pgfplots/sloped}{#1}%
+		\fi
+		\ifpgfplots@sloped
+			%
+			\ifpgfplots@sloped@resets@nontranslations
+				\pgftransformresetnontranslations
+			\fi
+			%
+			\pgfkeysgetvalue{/pgfplots/sloped/at position}\pgfplots@loc@TMPd
+			\ifx\pgfplots@loc@TMPd\pgfutil@empty
+				\def\pgfplots@loc@TMPd{90}%
+			\else
+				\pgfmathparse{90+\pgfplots@loc@TMPd}%
+				\let\pgfplots@loc@TMPd=\pgfmathresult
+			\fi
+			\pgfpointpolar{\pgfplots@loc@TMPd}{1pt}%
+			%
+			\ifdim\pgf@x<0pt%   
+				% oh. upside down.
+				\pgfkeysvalueof{/pgfplots/sloped/execute for upside down}%
+				\ifpgfplots@sloped@allowupsidedown
+				\else
+					% do not allow upside down labels:
+					\global\pgf@x=-\pgf@x%
+					\global\pgf@y=-\pgf@y%
+				\fi
+			\fi%
+			%
+			\pgf@ya=-\pgf@y%
+			% set up rotation matrix 
+			%  [ cos(alpha) sin(alpha); 
+			%   -sin(alpha) cos(alpha) ]
+			% where cos(alpha) = n_x and sin(alpha) = n_y:
+			\pgftransformcm%
+			{\pgf@sys@tonumber{\pgf@x}}{\pgf@sys@tonumber{\pgf@y}}%
+			{\pgf@sys@tonumber{\pgf@ya}}{\pgf@sys@tonumber{\pgf@x}}{\pgfpointorigin}%
+		\fi
+	\fi
+}
 
 \def\pgfplotsaxisupdatelimitsforcoordinatetwodim@polar#1#2#3{%
 	%
@@ -334,7 +413,11 @@
 					% FIXME : aspect ratios!
 					% perhaps pgfpointpolarxy?
 					\if y\pgfplotspointonorientedsurfaceB
-						\pgfqpointpolar{#1}{1pt}%
+                        \if r\pgfkeysvalueof{/pgfplots/\pgfplotspointonorientedsurfaceA\space dir/value}%
+                            \pgfqpointpolar{-#1}{-1pt}%
+                        \else
+                            \pgfqpointpolar{#1}{1pt}%
+                        \fi
 					\else
 						\pgfpointorigin
 					\fi
@@ -390,15 +473,26 @@
 
 \def\pgfplotspointouternormalvectorofaxis@polaraxis#1#2#3\relax{%
 	\if v#1%
+		% ah, we want to find the outer normal for an ANGLE.
+		%
+		% That's tricky because we need the current value! What if we
+		% do not have one?
 		\pgfplotspointouternormalvectorofaxisgetv{#1#2#3}%
 		% in direction of the length.
 		\ifx\pgfplotsretval\pgfutil@empty
+			\pgfplotswarning{missing near ticklabel at}{}\pgfeov% 
+			% oh, what a mess. We do not know the angle! 
+			% this means the alignment will be wrong (most likely...)
 			\def\pgfplotsretval{0}%
 		\fi
 		% FIXME : datascaling!
 		% FIXME : aspect ratios!
 		% perhaps pgfpointpolarxy?
-		\pgfqpointpolar{\pgfplotsretval}{1pt}%
+		\if r\pgfkeysvalueof{/pgfplots/x dir/value}%
+			\pgfqpointpolar{-\pgfplotsretval}{-1pt}%
+		\else
+			\pgfqpointpolar{\pgfplotsretval}{1pt}%
+		\fi
 	\else
 		\if v#2%
 			\if#10%
@@ -467,6 +561,9 @@
 		\ifx\pgfplotsretval\pgfutil@empty
 			\def\pgfplotsretval{0}%
 		\fi
+		\if r\pgfkeysvalueof{/pgfplots/x dir/value}%
+			\edef\pgfplotsretval{-\pgfplotsretval}%
+		\fi
 		\pgfmath@basic@sin@{\pgfplotsretval}%
 		\pgf@x=-\pgfmathresult pt
 		\pgfmath@basic@cos@{\pgfplotsretval}%
@@ -476,12 +573,32 @@
 	\def\pgfplotsunitxinvlength{1}%
 	%
 	\def\pgfplotspointunity{%
+		% FIXME : what about 'x dir=reverse' !?
 		\pgfqpointpolar{\pgfplots@xmin}{1pt}%
 	}%
 	\def\pgfplotsunitylength{1}%
 	\def\pgfplotsunityinvlength{1}%
 }%
 
+\def\pgfplots@transformshift@along@outer@normal@on@line@of@oriented@surf@polar#1#2{%
+	\if v#1%
+		\let\pgfplots@loc@TMPa=\pgfplotspointonorientedsurfaceA%
+		\if v#2%
+			\pgfplots@error{Exactly one of '#1' or '#2' must be 'v', not both}%
+		\fi
+	\else
+		\if v#2%
+			\let\pgfplots@loc@TMPa=\pgfplotspointonorientedsurfaceB%
+		\else
+			\pgfplots@error{One of '#1' or '#2' must be 'v'}%
+		\fi
+	\fi
+	%
+	\if x\pgfplots@loc@TMPa
+	\else
+		\pgfplots@transformshift@along@outer@normal@on@line@of@oriented@surf@orig{#1}{#2}%
+	\fi
+}%
 \def\pgfplots@drawgridlines@onorientedsurf@fromto@polar#1{%
 	\if x\pgfplotspointonorientedsurfaceA
 		\pgfpathmoveto{\pgfplotspointonorientedsurfaceab{#1}{\csname pgfplots@\pgfplotspointonorientedsurfaceB min\endcsname}}%
